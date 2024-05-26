@@ -22,35 +22,3 @@ def find_longest_orthogonal_lines(mask):
     ratio = side_lengths[0] / side_lengths[-1]
     
     return ratio
-
-def process_images(image_folder, mask_folder, output_file):
-    if not os.path.exists(image_folder):
-        print(f"Error: Image folder {image_folder} does not exist.")
-        return
-    if not os.path.exists(mask_folder):
-        print(f"Error: Mask folder {mask_folder} does not exist.")
-        return
-
-    image_files = os.listdir(image_folder)
-    results = []
-
-    for image_file in image_files:
-        if image_file.lower().endswith('.jpg'):
-            mask_file = image_file.replace('.JPG', '.tif').replace('.jpg', '.tif')  # Assuming masks are in .tif format
-            mask_path = os.path.join(mask_folder, mask_file)
-            
-            if os.path.exists(mask_path):
-                mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
-                if mask is not None:
-                    ratio = find_longest_orthogonal_lines(mask)
-                    results.append((image_file, ratio))
-
-    # Save the results to a CSV file
-    np.savetxt(output_file, results, fmt='%s,%.6f', delimiter=',', header='Image,Ratio', comments='')
-
-if __name__ == "__main__":
-    image_folder = 'data_visualization/train/images_1_to_250'
-    mask_folder = 'data_visualization/train/masks'
-    output_file = 'data_visualization/train/ratios.csv'
-    
-    process_images(image_folder, mask_folder, output_file)
