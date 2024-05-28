@@ -1,59 +1,68 @@
 import os
 import numpy as np
-from PIL import Image
+import cv2
 import pandas as pd
-from os.path import exists
 
-def calculate_bug_pixel_ratio(image_path):
-    try:
-        # Charger l'image
-        image = Image.open(image_path).convert('RGBA')
-        # Convertir en Numpy array
-        data = np.array(image)
-        
-        # Calculer le nombre total de pixels
-        total_pixels = data.shape[0] * data.shape[1]
-        
-        # Calculer le nombre de pixels non transparents
-        non_transparent_pixels = np.sum(data[:, :, 3] > 0)
-        
-        # Calculer le ratio
-        bug_pixel_ratio = non_transparent_pixels / total_pixels
-        
-        print(f"Image: {image_path}, Bug pixel ratio: {bug_pixel_ratio}")
-        return bug_pixel_ratio
-    except Exception as e:
-        print(f"Erreur lors du traitement de l'image {image_path}: {e}")
-        return np.nan
+images_dir = 'train/images_1_to_250'
+masks_dir = 'train/masks'
+output_file = 'train/testratio.xlsx'
 
-def process_images_in_folder(folder_path):
-    try:
-        # Préparer le DataFrame
-        df = pd.read_csv('classif.csv')
-        print("CSV chargé avec succès")
+def calculate_bug_pixel_ratio(mask):
+    # Calculer le nombre total de pixels
+    total_pixels = mask.size
+    
+    # Calculer le nombre de pixels non noirs (pixels de l'insecte)
+    bug_pixels = np.sum(mask > 0)
+    
+    # Calculer le ratio
+    bug_pixel_ratio = bug_pixels / total_pixels
+    
+    return bug_pixel_ratio
 
-        df["bug_pixel_ratio"] = np.nan  # Ratio du nombre de pixels de l'insecte par rapport au nombre total de pixels
-        
-        # Parcourir les images dans le dossier
-        for id in df["ID"]:
-            filename = str(id) + '.png'
-            image_path = os.path.join(folder_path, filename)
-            print(f"Chemin de l'image: {image_path}")
+def process_directory(images_dir, masks_dir, output_file):
+    results = []
+    
+    for image_filename in os.listdir(images_dir):
+        if image_filename.lower().endswith('.jpg'):  # Assurez-vous que cela correspond aux extensions de fichiers image
+            image_path = os.path.join(images_dir, image_filename)
+            mask_filename = image_filename.replace('.jpg', '_mask.png')  # Ajuster le modèle de fichier de masque si nécessaire
+            mask_path = os.path.join(masks_dir, mask_filename)
             
-            if exists(image_path):
-                # Calculer le ratio du nombre de pixels de l'insecte
-                bug_pixel_ratio = calculate_bug_pixel_ratio(image_path)
-                
-                # Ajouter les résultats au DataFrame
-                df.loc[df['ID'] == id, ['bug_pixel_ratio']] = [bug_pixel_ratio]
-                print(f"Valeur ajoutée pour l'ID {id}: {bug_pixel_ratio}")
-        
-        # Sauvegarder les résultats dans un fichier CSV
-        df.to_csv('classif.csv', index=False)
-        print("CSV sauvegardé avec succès")
-    except Exception as e:
-        print(f"Erreur lors du traitement des images dans le dossier {folder_path}: {e}")
+            print(f"Attempting to load image: {image_path}")
+            if not os.path.exists(image_path):
+                print(f"Image file does not exist: {image_path}")
+                continue
+            
+            image = cv2.imread(image_path, cv2.IMREAD_COLOR)
+            if image is None:
+                print(f"Failed to load image: {image_path}")
+                continue
+            
+            print(f"Attempting to load mask: {mask_path}")
+            if not os.path.exists(mask_path):
+                print(f"Mask file does not exist: {mask_path}")
+                continue
+            
+            mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+            if mask is None:
+                print(f"Failed to load mask: {mask_path}")
+                continue
+            
+            print(f"Processing image: {image_filename}")
+            bug_pixel_ratio = calculate_bug_pixel_ratio(mask)
+            results.append({'Filename': image_filename, 'Bug Pixel Ratio': bug_pixel_ratio})
+            print(f"Image: {image_filename}, Bug Pixel Ratio: {bug_pixel_ratio}")
 
-# Remplacez 'path_to_your_folder' par le chemin de votre dossier contenant les images
-folder_path = 'C:/DATAIA/train/images_1_to_250'
-process_images_in_folder(folder_path)
+    # Convertir les résultats en DataFrame
+    if results:
+        df = pd.DataFrame(results)
+        print(df.head())  # Afficher les premières lignes du DataFrame pour vérification
+        
+        # Sauvegarder les résultats dans un fichier Excel
+        df.to_excel(output_file, index=False)
+        print(f"Results saved to {output_file}")
+    else:
+        print("No results to save.")
+
+# Process the images and save the results
+process_directory(images_dir, masks_dir, output_file)
