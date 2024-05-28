@@ -24,8 +24,9 @@ def process_directory(images_dir, masks_dir, output_file):
     
     for image_filename in os.listdir(images_dir):
         if image_filename.lower().endswith('.jpg'):  # Assurez-vous que cela correspond aux extensions de fichiers image
+            image_id = os.path.splitext(image_filename)[0]
             image_path = os.path.join(images_dir, image_filename)
-            mask_filename = image_filename.replace('.jpg', '_mask.png')  # Ajuster le modèle de fichier de masque si nécessaire
+            mask_filename = f'binary_{image_id}.tif'  # Ajuster le modèle de fichier de masque si nécessaire
             mask_path = os.path.join(masks_dir, mask_filename)
             
             print(f"Attempting to load image: {image_path}")
