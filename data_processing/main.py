@@ -98,19 +98,28 @@ def process_directory(images_dir, masks_dir, output_file):
             mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
             
             if image is not None and mask is not None:
-                stats = median_std(image, mask)
-                results.append([image_filename] + stats)
+                sym_index = symmetric_index(image)
+                results.append([image_filename] + sym_index)
             else:
                 print(f"Failed to load image or mask for {image_filename}")
 
-    # Convert results to a DataFrame and save as CSV
-    df = pd.DataFrame(results, columns=['Image', 'Median Red', 'Median Green', 'Median Blue', 'Std Dev Red', 'Std Dev Green', 'Std Dev Blue'])
-    df.to_csv(output_file, index=False)
+    # Convert results to a DataFrame
+    df = pd.DataFrame(results, columns=['Image_Number', 'Symmetric_Index'])
+    print(f"Results saved to {output_file}")
+
+    # Load the existing Excel file or create a new one if it doesn't exist
+    if os.path.exists(output_file):
+        with pd.ExcelWriter(output_file, engine='openpyxl', mode='a') as writer:
+            df.to_excel(writer, sheet_name='Symmetric_Index', index=False)
+    else:
+        with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Symmetric_Index', index=False)
+
     print(f"Results saved to {output_file}")
 
 # Define your directories and output file
-images_dir = 'train\images_1_to_250'
-masks_dir = 'train\masks'
+images_dir = 'train\images_1_to_250\1.JPG'
+masks_dir = 'train\masks\binary_1.tif'
 output_file = 'train\classif.xlsx'
 
 # Process the images
