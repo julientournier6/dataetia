@@ -1,42 +1,73 @@
-import cv2
 import numpy as np
+import os
+import cv2
+import pandas as pd
 
-def symmetry_index(image_path):
-    # Lire l'image
-    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-    # Binariser l'image
-    _, binary_image = cv2.threshold(image, 127, 255, cv2.THRESH_BINARY)
- 
-    # Trouver les contours
-    contours, _ = cv2.findContours(binary_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    contour = max(contours, key=cv2.contourArea)  # Prendre le plus grand contour
- 
-    # Créer un masque de l'objet
-    mask = np.zeros_like(binary_image)
-    cv2.drawContours(mask, [contour], -1, 255, thickness=cv2.FILLED)
- 
-    # Calculer le centre de masse de l'objet
-    M = cv2.moments(mask)
-    if M["m00"] == 0:  # Éviter la division par zéro
-        return float('inf')
-    cx = int(M["m10"] / M["m00"])
- 
-    # Calculer les distances de symétrie
-    h, w = mask.shape
-    total_distance = 0
-    count = 0
- 
-    for y in range(h):
-        for x in range(cx):
-            if mask[y, x] == 255:
-                symmetric_x = cx + (cx - x)
-                if symmetric_x < w and mask[y, symmetric_x] == 255:
-                    total_distance += abs(mask[y, x] - mask[y, symmetric_x])
-                    count += 1
- 
-    if count == 0:  # Éviter la division par zéro
-        return float('inf')
-   
-    # Calculer l'indice de symétrie
-    symmetry_index = total_distance / count
-    return symmetry_index
+images_dir = 'train/images_1_to_250'
+masks_dir = 'train/masks'
+output_file = 'train/testratio.xlsx'
+
+def calculate_symmetry_index(image):
+    # Assurez-vous que l'image est en niveaux de gris
+    height, width = image.shape
+    
+    left_half = image[:, :width // 2]
+    right_half = image[:, width // 2:]
+    
+    # Flip right half horizontally
+    right_half_flipped = np.fliplr(right_half)
+    
+    # Calculate the symmetry index
+    diff = cv2.absdiff(left_half, right_half_flipped)
+    score = np.sum(diff) / (height * (width // 2))
+    return score
+
+
+def process_directory(images_dir, masks_dir, output_file):
+    results = []
+    
+    for image_filename in os.listdir(images_dir):
+        if image_filename.lower().endswith('.jpg'):  
+            image_id = os.path.splitext(image_filename)[0]
+            image_path = os.path.join(images_dir, image_filename)
+            mask_filename = f'binary_{image_id}.tif' 
+            mask_path = os.path.join(masks_dir, mask_filename)
+            
+            print(f"Attempting to load image: {image_path}")
+            if not os.path.exists(image_path):
+                print(f"Image file does not exist: {image_path}")
+                continue
+            
+            image = cv2.imread(image_path, cv2.IMREAD_COLOR)
+            if image is None:
+                print(f"Failed to load image: {image_path}")
+                continue
+            
+            print(f"Attempting to load mask: {mask_path}")
+            if not os.path.exists(mask_path):
+                print(f"Mask file does not exist: {mask_path}")
+                continue
+            
+            mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+            if mask is None:
+                print(f"Failed to load mask: {mask_path}")
+                continue
+            
+            print(f"Processing image: {image_filename}")
+            symmetry_index = calculate_symmetry_index(mask)
+            results.append({'Filename': image_filename, 'Bug Symmetry Index': symmetry_index})
+            print(f"Image: {image_filename}, Bug Symmetry Index: {symmetry_index}")
+
+    # Convertir les résultats en DataFrame
+    if results:
+        df = pd.DataFrame(results)
+        print(df.head())  # Afficher les premières lignes du DataFrame pour vérification
+        
+        # Sauvegarder les résultats dans un fichier Excel
+        df.to_excel(output_file, index=False)
+        print(f"Results saved to {output_file}")
+    else:
+        print("No results to save.")
+
+# Process the images and save the results
+process_directory(images_dir, masks_dir, output_file)
