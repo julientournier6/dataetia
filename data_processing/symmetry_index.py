@@ -56,7 +56,7 @@ def process_directory(images_dir, masks_dir, output_file):
                 continue
             
             print(f"Processing image: {image_filename}")
-            symmetry_index = calculate_symmetry_index(mask)
+            symmetry_index = calculate_symmetry_index(image)
             results.append({'Filename': image_filename, 'Bug Symmetry Index': symmetry_index})
             print(f"Image: {image_filename}, Bug Symmetry Index: {symmetry_index}")
 

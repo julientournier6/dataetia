@@ -99,12 +99,11 @@ def process_image(image_path, mask_path):
     # Calculer le ratio de pixels de l'insecte
     pixel_ratio = calculate_bug_pixel_ratio(mask)
 
-    # Trouver les contours et calculer l'indice de symétrie
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    symmetry_index = calculate_symmetry_index(contours[0]) if contours else 0
+    # Calculer l'indice de symétrie
+    symmetry_index = calculate_symmetry_index(image)
 
     # Calculer le ratio orthogonal
-    orthogonal_ratio = calculate_orthogonal_ratio(contours[0]) if contours else 0
+    orthogonal_ratio = calculate_orthogonal_ratio(mask)
 
     return {
         "min_red": min_values[2], "min_green": min_values[1], "min_blue": min_values[0],
