@@ -8,7 +8,9 @@ masks_dir = 'train/masks'
 output_file = 'train/testratio.xlsx'
 
 def calculate_symmetry_index(image):
-    # Assurez-vous que l'image est en niveaux de gris
+    if len(image.shape) == 3:
+        image = image[:, :, 0]
+    
     height, width = image.shape
     
     left_half = image[:, :width // 2]
