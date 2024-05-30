@@ -28,29 +28,16 @@ def calculate_symmetry_index(image):
 
 # Feature 2 - The ratio between the 2 longest orthogonal lines that can cross the bug (smallest divided by longuest)
 def calculate_orthogonal_ratio(mask):
-    # Find contours in the segmentation mask
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
-    # Select the largest contour, which should correspond to the insect
-    if contours:
-        largest_contour = max(contours, key=cv2.contourArea)
-    
-        # Calculate the longest orthogonal lines
-        rect = cv2.minAreaRect(largest_contour)
-        box = cv2.boxPoints(rect)
-        box = np.int0(box)
-        
-        # Calculate the lengths of the sides of the bounding box
-        side_lengths = [np.linalg.norm(box[i] - box[(i+1) % 4]) for i in range(4)]
-        side_lengths = sorted(side_lengths)
-        
-        # The ratio between the shortest and the longest of the two orthogonal lines
-        ratio = side_lengths[0] / side_lengths[-1]
-        
-        return ratio, box
-    else:
-        return None, None
-
+    points = np.column_stack(np.where(mask > 0))
+    if points.shape[0] < 5:  # Assurez-vous qu'il y a suffisamment de points pour calculer
+        return 0
+    rect = cv2.minAreaRect(points)
+    box = cv2.boxPoints(rect)
+    box = np.int0(box)
+    distances = [np.linalg.norm(box[i] - box[(i + 1) % 4]) for i in range(4)]
+    sorted_distances = sorted(distances)
+    orthogonal_ratio = sorted_distances[0] / sorted_distances[2]  # Smallest divided by longest
+    return orthogonal_ratio
 
 
 # Feature 3 - The ratio of the number of pixels of bug divided by the number of pixels of the full image

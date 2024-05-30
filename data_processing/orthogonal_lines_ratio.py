@@ -1,75 +1,94 @@
 import cv2
 import numpy as np
+import pandas as pd
 import os
 
-def find_longest_orthogonal_lines(mask):
-    # Find contours in the segmentation mask
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+def calculate_orthogonal_ratio(mask):
+    points = np.column_stack(np.where(mask > 0))
+    if points.shape[0] == 0:
+        return None
+    rect = cv2.minAreaRect(points)
+    box = cv2.boxPoints(rect)
+    box = np.int0(box) 
     
-    # Select the largest contour, which should correspond to the insect
-    if contours:
-        largest_contour = max(contours, key=cv2.contourArea)
+    # Calculer les longueurs des côtés du rectangle
+    side_lengths = [np.linalg.norm(box[i] - box[(i+1) % 4]) for i in range(4)]
+    side_lengths.sort(reverse=True)  # Trier les longueurs en ordre décroissant
     
-        # Calculate the longest orthogonal lines
-        rect = cv2.minAreaRect(largest_contour)
-        box = cv2.boxPoints(rect)
-        box = np.int0(box)
-        
-        # Calculate the lengths of the sides of the bounding box
-        side_lengths = [np.linalg.norm(box[i] - box[(i+1) % 4]) for i in range(4)]
-        side_lengths = sorted(side_lengths)
-        
-        # The ratio between the shortest and the longest of the two orthogonal lines
-        ratio = side_lengths[0] / side_lengths[-1]
-        
-        return ratio, box
+    # Calculer le ratio entre les deux plus longues lignes orthogonales
+    if side_lengths[3] != 0:
+        ratio = side_lengths[2] / side_lengths[3]
+        return ratio
     else:
-        return None, None
+        return None
 
-def process_images(image_folder, mask_folder, output_file):
-    # Print current working directory for debugging
-    print(f"Current working directory: {os.getcwd()}")
-    print(f"Image folder path: {image_folder}")
-    print(f"Mask folder path: {mask_folder}")
+def process_image(image_path, mask_path):
+    image = cv2.imread(image_path, cv2.IMREAD_COLOR)
+    mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
 
-    if not os.path.exists(image_folder):
-        print(f"Error: Image folder {image_folder} does not exist.")
-        return
-    if not os.path.exists(mask_folder):
-        print(f"Error: Mask folder {mask_folder} does not exist.")
-        return
+    if image is None or mask is None:
+        return None
 
-    image_files = os.listdir(image_folder)
+    # Calculer le ratio orthogonal
+    orthogonal_ratio = calculate_orthogonal_ratio(mask)
+
+    return {
+        "orthogonal_ratio": orthogonal_ratio
+    }
+
+# Fonction pour traiter toutes les images dans un répertoire donné
+def process_directory(images_dir, masks_dir, output_file):
     results = []
+    
+    for image_filename in os.listdir(images_dir):
+        if image_filename.lower().endswith('.jpg'):  
+            image_id = os.path.splitext(image_filename)[0]
+            image_path = os.path.join(images_dir, image_filename)
+            mask_filename = f'binary_{image_id}.tif' 
+            mask_path = os.path.join(masks_dir, mask_filename)
+            
+            print(f"Attempting to load image: {image_path}")
+            if not os.path.exists(image_path):
+                print(f"Image file does not exist: {image_path}")
+                continue
+            
+            image = cv2.imread(image_path, cv2.IMREAD_COLOR)
+            if image is None:
+                print(f"Failed to load image: {image_path}")
+                continue
+            
+            print(f"Attempting to load mask: {mask_path}")
+            if not os.path.exists(mask_path):
+                print(f"Mask file does not exist: {mask_path}")
+                continue
+            
+            mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+            if mask is None:
+                print(f"Failed to load mask: {mask_path}")
+                continue
+            
+            print(f"Processing image: {image_filename}")
+            ortho_ratio = calculate_orthogonal_ratio(image)
+            results.append({'Filename': image_filename, 'Bug Symmetry Index': ortho_ratio})
+            print(f"Image: {image_filename}, Bug Symmetry Index: {ortho_ratio}")
 
-    for image_file in image_files:
-        if image_file.lower().endswith('.jpg'):
-            mask_file = image_file.replace('.jpg', '.tif').replace('.JPG', '.tif')
-            mask_path = os.path.join(mask_folder, mask_file)
-            image_path = os.path.join(image_folder, image_file)
-            print(f"Processing {image_file} with mask {mask_path}")
-            if os.path.exists(mask_path):
-                mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
-                image = cv2.imread(image_path)
-                if mask is not None:
-                    ratio, box = find_longest_orthogonal_lines(mask)
-                    if ratio is not None:
-                        results.append((image_file, ratio, box, image))
-            else:
-                print(f"Mask not found: {mask_path}")
-
-    # Save the results to a CSV file
+    # Convertir les résultats en DataFrame
     if results:
-        np.savetxt(output_file, [(res[0], res[1]) for res in results], fmt='%s,%.6f', delimiter=',', header='Image,Ratio', comments='')
-        print(f'Feature extraction completed. Results saved to {output_file}')
+        df = pd.DataFrame(results)
+        print(df.head())  # Afficher les premières lignes du DataFrame pour vérification
+        
+        # Sauvegarder les résultats dans un fichier Excel
+        df.to_excel(output_file, index=False)
+        print(f"Results saved to {output_file}")
     else:
-        print("No valid results to save.")
-    
-    return results
+        print("No results to save.")
 
-if __name__ == "__main__":
-    image_folder = 'train/images_1_to_250'
-    mask_folder = 'train/masks'
-    output_file = 'train/ratios.csv'
+
+# Définir les répertoires et le fichier de sortie
+images_dir = 'train/images_1_to_250'
+masks_dir = 'train/masks'
+output_file = 'train/testratio.xlsx'
+
+# Process the images and save the results
+process_directory(images_dir, masks_dir, output_file)
     
-    results = process_images(image_folder, mask_folder, output_file)
