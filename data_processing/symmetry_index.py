@@ -8,7 +8,9 @@ masks_dir = 'train/masks'
 output_file = 'train/testratio.xlsx'
 
 def calculate_symmetry_index(image):
-    # Assurez-vous que l'image est en niveaux de gris
+    if len(image.shape) == 3:
+        image = image[:, :, 0]
+    
     height, width = image.shape
     
     left_half = image[:, :width // 2]
@@ -54,7 +56,7 @@ def process_directory(images_dir, masks_dir, output_file):
                 continue
             
             print(f"Processing image: {image_filename}")
-            symmetry_index = calculate_symmetry_index(mask)
+            symmetry_index = calculate_symmetry_index(image)
             results.append({'Filename': image_filename, 'Bug Symmetry Index': symmetry_index})
             print(f"Image: {image_filename}, Bug Symmetry Index: {symmetry_index}")
 

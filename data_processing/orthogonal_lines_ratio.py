@@ -1,3 +1,7 @@
+import cv2
+import numpy as np
+import pandas as pd
+import os
 ### Feature 4 - Ratio between the 2 longest orthogonal lines that can cross the bug ###
 
 def orthogonal_lines_ratio(mask):

@@ -3,23 +3,35 @@ import cv2
 import pandas as pd
 import os
 
-# Fonction pour calculer l'indice de symétrie basé sur les contours de l'insecte
-def calculate_symmetry_index(contour):
-    if len(contour) < 5:
-        return 0
-    rect = cv2.minAreaRect(contour)
-    box = cv2.boxPoints(rect)
-    box = np.int0(box)
-    distances = [np.linalg.norm(box[i] - box[(i + 1) % 4]) for i in range(4)]
-    sorted_distances = sorted(distances)
-    symmetry_index = sorted_distances[1] / sorted_distances[3]
-    return symmetry_index
+# Feature 1 - Symmetry Index
+def calculate_symmetry_index(image):
+    # Si l'image a plus de 2 dimensions, garder uniquement la première (hauteur et largeur)
+    if len(image.shape) == 3:
+        image = image[:, :, 0]
+    
+    height, width = image.shape
+    left_half = image[:, :width // 2]
+    right_half = image[:, width // 2:]
+    
+    # Flip right half horizontally
+    right_half_flipped = np.fliplr(right_half)
+    
+    # Convertir les deux matrices au même type de données
+    left_half = left_half.astype(np.float32)
+    right_half_flipped = right_half_flipped.astype(np.float32)
+    
+    # Calculate the symmetry index
+    diff = cv2.absdiff(left_half, right_half_flipped)
+    score = np.sum(diff) / (height * (width // 2))
+    return score
 
-# Fonction pour calculer le ratio des deux lignes orthogonales les plus longues
-def calculate_orthogonal_ratio(contour):
-    if len(contour) < 5:
+
+# Feature 2 - The ratio between the 2 longest orthogonal lines that can cross the bug (smallest divided by longuest)
+def calculate_orthogonal_ratio(mask):
+    points = np.column_stack(np.where(mask > 0))
+    if points.shape[0] < 5:  # Assurez-vous qu'il y a suffisamment de points pour calculer
         return 0
-    rect = cv2.minAreaRect(contour)
+    rect = cv2.minAreaRect(points)
     box = cv2.boxPoints(rect)
     box = np.int0(box)
     distances = [np.linalg.norm(box[i] - box[(i + 1) % 4]) for i in range(4)]
@@ -27,26 +39,27 @@ def calculate_orthogonal_ratio(contour):
     orthogonal_ratio = sorted_distances[0] / sorted_distances[2]  # Smallest divided by longest
     return orthogonal_ratio
 
-# Fonction pour calculer le ratio de pixels de l'insecte par rapport aux pixels totaux de l'image
+
+# Feature 3 - The ratio of the number of pixels of bug divided by the number of pixels of the full image
 def calculate_bug_pixel_ratio(mask):
     total_pixels = mask.size
     bug_pixels = np.sum(mask > 0)
     bug_pixel_ratio = bug_pixels / total_pixels
     return bug_pixel_ratio
 
-# Fonction pour calculer les statistiques des couleurs (min, max, moyenne, médiane, écart-type)
+# Feature 4/5 - The min, max and mean values for Red, Green and Blue within the bug mask. The median and standard deviation for the Red, Green and Blue within the bug mask
 def calculate_color_statistics(image, mask):
-    bee_isolation = cv2.bitwise_and(image, image, mask=mask)
-    bee_pixels = bee_isolation[mask != 0]
-    bee_pixels = bee_pixels.reshape(-1, 3)
-    min_values = np.min(bee_pixels, axis=0)
-    max_values = np.max(bee_pixels, axis=0)
-    mean_values = np.mean(bee_pixels, axis=0)
-    median_values = np.median(bee_pixels, axis=0)
-    std_values = np.std(bee_pixels, axis=0)
+    bug_isolation = cv2.bitwise_and(image, image, mask=mask)
+    bug_pixels = bug_isolation[mask != 0]
+    bug_pixels = bug_pixels.reshape(-1, 3)
+    min_values = np.min(bug_pixels, axis=0)
+    max_values = np.max(bug_pixels, axis=0)
+    mean_values = np.mean(bug_pixels, axis=0)
+    median_values = np.median(bug_pixels, axis=0)
+    std_values = np.std(bug_pixels, axis=0)
     return min_values, max_values, mean_values, median_values, std_values
 
-# Fonction pour calculer des fonctionnalités additionnelles (périmètre et aire)
+# Feature 6 à modifier
 def calculate_additional_features(mask):
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if contours:
@@ -73,12 +86,11 @@ def process_image(image_path, mask_path):
     # Calculer le ratio de pixels de l'insecte
     pixel_ratio = calculate_bug_pixel_ratio(mask)
 
-    # Trouver les contours et calculer l'indice de symétrie
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    symmetry_index = calculate_symmetry_index(contours[0]) if contours else 0
+    # Calculer l'indice de symétrie
+    symmetry_index = calculate_symmetry_index(image)
 
     # Calculer le ratio orthogonal
-    orthogonal_ratio = calculate_orthogonal_ratio(contours[0]) if contours else 0
+    orthogonal_ratio = calculate_orthogonal_ratio(mask)
 
     return {
         "min_red": min_values[2], "min_green": min_values[1], "min_blue": min_values[0],
