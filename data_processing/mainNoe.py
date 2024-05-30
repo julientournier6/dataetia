@@ -1,96 +1,97 @@
 import numpy as np
-import os
 import cv2
 import pandas as pd
-import datetime
-import openpyxl
+import os
 
-starttime = datetime.datetime.now()
+# Fonction pour calculer l'indice de symétrie basé sur les contours de l'insecte
+def calculate_symmetry_index(contour):
+    if len(contour) < 5:
+        return 0
+    rect = cv2.minAreaRect(contour)
+    box = cv2.boxPoints(rect)
+    box = np.int0(box)
+    distances = [np.linalg.norm(box[i] - box[(i + 1) % 4]) for i in range(4)]
+    sorted_distances = sorted(distances)
+    symmetry_index = sorted_distances[1] / sorted_distances[3]
+    return symmetry_index
 
-# Feature 1 - Symmetric index
+# Fonction pour calculer le ratio des deux lignes orthogonales les plus longues
+def calculate_orthogonal_ratio(contour):
+    if len(contour) < 5:
+        return 0
+    rect = cv2.minAreaRect(contour)
+    box = cv2.boxPoints(rect)
+    box = np.int0(box)
+    distances = [np.linalg.norm(box[i] - box[(i + 1) % 4]) for i in range(4)]
+    sorted_distances = sorted(distances)
+    orthogonal_ratio = sorted_distances[0] / sorted_distances[2]  # Smallest divided by longest
+    return orthogonal_ratio
 
-def symmetric_index(image):
-    gray_array = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    half_width = gray_array.shape[1] // 2
-    left_half = gray_array[:, :half_width]
-    right_half = gray_array[:, half_width:]
-    if left_half.shape[1] != right_half.shape[1]:
-        right_half = cv2.resize(right_half, (half_width, gray_array.shape[0]))
-    symmetry = np.sum(np.abs(left_half - np.flip(right_half, axis=1))) / np.prod(left_half.shape)
-    return symmetry
-
-# Feature 2 - The ratio between the 2 longest orthogonal lines that can cross the bug (smallest divided by longuest)
-
-def orthogonal_lines_ratio(mask):
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    if len(contours) == 0:
-        return None
-    max_ratio = 0
-    for contour in contours:
-        rect = cv2.minAreaRect(contour)
-        box = cv2.boxPoints(rect)
-        box = np.intp(box)
-        side_lengths = [np.linalg.norm(box[i] - box[(i+1) % 4]) for i in range(4)]
-        side_lengths.sort(reverse=True)
-        if side_lengths[3] != 0:
-            ratio = side_lengths[2] / side_lengths[3]
-            if ratio > max_ratio:
-                max_ratio = ratio
-    return float(max_ratio)
-
-# Feature 3 - The ratio of the number of pixels of bug divided by the number of pixels of the full image
-
+# Fonction pour calculer le ratio de pixels de l'insecte par rapport aux pixels totaux de l'image
 def calculate_bug_pixel_ratio(mask):
     total_pixels = mask.size
     bug_pixels = np.sum(mask > 0)
     bug_pixel_ratio = bug_pixels / total_pixels
     return bug_pixel_ratio
 
-# Feature 4 - The min, max and mean values for Red, Green and Blue within the bug mask
-
-def extract_color_stats(image, mask):
-    bug_pixels = cv2.bitwise_and(image, image, mask=mask)
-    blue_channel = bug_pixels[:, :, 0]
-    green_channel = bug_pixels[:, :, 1]
-    red_channel = bug_pixels[:, :, 2]
-    blue_values = blue_channel[mask > 0]
-    green_values = green_channel[mask > 0]
-    red_values = red_channel[mask > 0]
-    stats = {
-        "Red": {
-            "min": np.min(red_values),
-            "max": np.max(red_values),
-            "mean": np.mean(red_values)
-        },
-        "Green": {
-            "min": np.min(green_values),
-            "max": np.max(green_values),
-            "mean": np.mean(green_values)
-        },
-        "Blue": {
-            "min": np.min(blue_values),
-            "max": np.max(blue_values),
-            "mean": np.mean(blue_values)
-        }
-    }
-    return stats
-
-# Feature 5 - The median and standard deviation for the Red, Green and Blue within the bug mask
-
-def median_std(image, mask):
+# Fonction pour calculer les statistiques des couleurs (min, max, moyenne, médiane, écart-type)
+def calculate_color_statistics(image, mask):
     bee_isolation = cv2.bitwise_and(image, image, mask=mask)
     bee_pixels = bee_isolation[mask != 0]
     bee_pixels = bee_pixels.reshape(-1, 3)
+    min_values = np.min(bee_pixels, axis=0)
+    max_values = np.max(bee_pixels, axis=0)
+    mean_values = np.mean(bee_pixels, axis=0)
     median_values = np.median(bee_pixels, axis=0)
     std_values = np.std(bee_pixels, axis=0)
-    result = np.concatenate((median_values, std_values))
-    if len(result) != 6:
-        return [None]*6
-    return result.tolist()
+    return min_values, max_values, mean_values, median_values, std_values
 
-#Process directory 
+# Fonction pour calculer des fonctionnalités additionnelles (périmètre et aire)
+def calculate_additional_features(mask):
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if contours:
+        contour = contours[0]
+        perimeter = cv2.arcLength(contour, True)
+        area = cv2.contourArea(contour)
+        return perimeter, area
+    return 0, 0
 
-def process_directory(images_dir, masks_dir, output_excel, output_csv):
+# Fonction principale pour traiter une seule image et un masque
+def process_image(image_path, mask_path):
+    image = cv2.imread(image_path, cv2.IMREAD_COLOR)
+    mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+
+    if image is None or mask is None:
+        return None
+
+    # Calculer les statistiques de couleur
+    min_values, max_values, mean_values, median_values, std_values = calculate_color_statistics(image, mask)
+    
+    # Calculer des fonctionnalités additionnelles
+    perimeter, area = calculate_additional_features(mask)
+    
+    # Calculer le ratio de pixels de l'insecte
+    pixel_ratio = calculate_bug_pixel_ratio(mask)
+
+    # Trouver les contours et calculer l'indice de symétrie
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    symmetry_index = calculate_symmetry_index(contours[0]) if contours else 0
+
+    # Calculer le ratio orthogonal
+    orthogonal_ratio = calculate_orthogonal_ratio(contours[0]) if contours else 0
+
+    return {
+        "min_red": min_values[2], "min_green": min_values[1], "min_blue": min_values[0],
+        "max_red": max_values[2], "max_green": max_values[1], "max_blue": max_values[0],
+        "mean_red": mean_values[2], "mean_green": mean_values[1], "mean_blue": mean_values[0],
+        "median_red": median_values[2], "median_green": median_values[1], "median_blue": median_values[0],
+        "std_red": std_values[2], "std_green": std_values[1], "std_blue": std_values[0],
+        "perimeter": perimeter, "area": area, "pixel_ratio": pixel_ratio, "symmetry_index": symmetry_index,
+        "orthogonal_ratio": orthogonal_ratio
+    }
+
+# Fonction pour traiter toutes les images dans un répertoire donné
+def process_directory(images_dir, masks_dir, output_file_excel, output_file_csv):
     results = []
     
     for image_filename in os.listdir(images_dir):
@@ -98,55 +99,61 @@ def process_directory(images_dir, masks_dir, output_excel, output_csv):
             image_id = os.path.splitext(image_filename)[0]
             image_path = os.path.join(images_dir, image_filename)
             mask_filename = f'binary_{image_id}.tif'
-            
-            # Skip processing if the mask is 154
-            if mask_filename != 'binary_154.tif':
-                continue
-            
             mask_path = os.path.join(masks_dir, mask_filename)
             
-            image = cv2.imread(image_path, cv2.IMREAD_COLOR)
-            mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+            print(f"Attempting to load image: {image_path}")
+            if not os.path.exists(image_path):
+                print(f"Image file does not exist: {image_path}")
+                continue
             
-            if image is not None and mask is not None:
-                symmetry = symmetric_index(image)
-                ortho_ratio = orthogonal_lines_ratio(mask)
-                bug_pixel_ratio = calculate_bug_pixel_ratio(mask)
-                color_stats = extract_color_stats(image, mask)
-                median_std_stats = median_std(image, mask)
-                
-                stats = [symmetry, ortho_ratio, bug_pixel_ratio,
-                         color_stats['Red']['min'], color_stats['Red']['max'], color_stats['Red']['mean'],
-                         color_stats['Green']['min'], color_stats['Green']['max'], color_stats['Green']['mean'],
-                         color_stats['Blue']['min'], color_stats['Blue']['max'], color_stats['Blue']['mean']] + median_std_stats
-                
-                results.append([image_filename] + stats)
+            image = cv2.imread(image_path, cv2.IMREAD_COLOR)
+            if image is None:
+                print(f"Failed to load image: {image_path}")
+                continue
+            
+            print(f"Attempting to load mask: {mask_path}")
+            if not os.path.exists(mask_path):
+                print(f"Mask file does not exist: {mask_path}")
+                continue
+            
+            mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+            if mask is None:
+                print(f"Failed to load mask: {mask_path}")
+                continue
+            
+            print(f"Processing image: {image_filename}")
+            stats = process_image(image_path, mask_path)
+            if stats:
+                results.append([image_filename] + list(stats.values()))
             else:
-                print(f"Failed to load image or mask for {image_filename}")
+                print(f"Error processing image: {image_filename}")
 
-    # Convert results to a DataFrame and save as Excel
-    columns = ['Image', 'Symmetric Index', 'Ortho Ratio', 'Bug Pixel Ratio', 
-               'Red Min', 'Red Max', 'Red Mean', 
-               'Green Min', 'Green Max', 'Green Mean', 
-               'Blue Min', 'Blue Max', 'Blue Mean', 
-               'Median Red', 'Median Green', 'Median Blue', 
-               'Std Dev Red', 'Std Dev Green', 'Std Dev Blue']
-    
-    df = pd.DataFrame(results, columns=columns)
-    df.to_excel(output_excel, index=False)
-    print(f"Results saved to {output_excel}")
-    
-    # Save the DataFrame as CSV
-    df.to_csv(output_csv, index=False)
-    print(f"Results also saved to {output_csv}")
-    
-    
-#Execute in main 
+    # Convertir les résultats en DataFrame et enregistrer en fichier Excel et CSV
+    columns = [
+        'Image', 'Min Red', 'Min Green', 'Min Blue', 'Max Red', 'Max Green', 'Max Blue',
+        'Mean Red', 'Mean Green', 'Mean Blue', 'Median Red', 'Median Green', 'Median Blue',
+        'Std Dev Red', 'Std Dev Green', 'Std Dev Blue', 'Perimeter', 'Area', 'Pixel Ratio',
+        'Symmetry Index', 'Orthogonal Ratio'
+    ]
+    if results:
+        df = pd.DataFrame(results, columns=columns)
+        print(df.head())  # Afficher les premières lignes du DataFrame pour vérification
+        
+        # Sauvegarder les résultats dans un fichier Excel
+        df.to_excel(output_file_excel, index=False)
+        print(f"Results saved to {output_file_excel}")
+        
+        # Sauvegarder les résultats dans un fichier CSV
+        df.to_csv(output_file_csv, index=False)
+        print(f"Results also saved to {output_file_csv}")
+    else:
+        print("No results to save.")
 
-if __name__ == "__main__":
-    images_dir = 'train/images_1_to_250'
-    masks_dir = 'train/masks'
-    output_excel = 'train/classif.xlsx'
-    output_csv = 'train/classif.csv'
-    
-    process_directory(images_dir, masks_dir, output_excel, output_csv)
+# Définir les répertoires et les fichiers de sortie
+images_dir = 'train/images_1_to_250'
+masks_dir = 'train/masks'
+output_file_excel = 'train/classif.xlsx'
+output_file_csv = 'train/classif.csv'
+
+# Traiter les images et sauvegarder les résultats
+process_directory(images_dir, masks_dir, output_file_excel, output_file_csv)
