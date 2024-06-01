@@ -57,6 +57,7 @@ def calculate_color_statistics(image, mask):
     std_values = np.std(bug_pixels, axis=0)
     return min_values, max_values, mean_values, median_values, std_values
 
+
 # Fonction principale pour traiter une seule image et un masque
 def process_image(image_path, mask_path):
     image = cv2.imread(image_path, cv2.IMREAD_COLOR)
@@ -67,9 +68,6 @@ def process_image(image_path, mask_path):
 
     # Calculer les statistiques de couleur
     min_values, max_values, mean_values, median_values, std_values = calculate_color_statistics(image, mask)
-    
-    # Calculer des fonctionnalités additionnelles
-    perimeter, area = calculate_additional_features(mask)
     
     # Calculer le ratio de pixels de l'insecte
     pixel_ratio = calculate_bug_pixel_ratio(mask)
@@ -86,7 +84,6 @@ def process_image(image_path, mask_path):
         "mean_red": mean_values[2], "mean_green": mean_values[1], "mean_blue": mean_values[0],
         "median_red": median_values[2], "median_green": median_values[1], "median_blue": median_values[0],
         "std_red": std_values[2], "std_green": std_values[1], "std_blue": std_values[0],
-        "perimeter": perimeter, "area": area, "pixel_ratio": pixel_ratio, "symmetry_index": symmetry_index,
         "orthogonal_ratio": orthogonal_ratio
     }
 
