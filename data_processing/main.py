@@ -5,37 +5,29 @@ import os
 
 # Feature 1 - Symmetry Index
 def calculate_symmetry_index(image):
-    # Si l'image a plus de 2 dimensions, garder uniquement la première (hauteur et largeur)
     if len(image.shape) == 3:
         image = image[:, :, 0]
-    
     height, width = image.shape
     left_half = image[:, :width // 2]
     right_half = image[:, width // 2:]
-    
-    # Flip right half horizontally
     right_half_flipped = np.fliplr(right_half)
-    
-    # Convertir les deux matrices au même type de données
     left_half = left_half.astype(np.float32)
     right_half_flipped = right_half_flipped.astype(np.float32)
-    
-    # Calculate the symmetry index
     diff = cv2.absdiff(left_half, right_half_flipped)
     score = np.sum(diff) / (height * (width // 2))
     return score
 
-# Feature 2 - The ratio between the 2 longest orthogonal lines that can cross the bug (smallest divided by longuest)
+# Feature 2 - The ratio between the 2 longest orthogonal lines that can cross the bug (smallest divided by longest)
 def calculate_orthogonal_ratio(mask):
     points = np.column_stack(np.where(mask > 0))
-    if points.shape[0] < 5:  # Assurez-vous qu'il y a suffisamment de points pour calculer
+    if points.shape[0] < 5:
         return 0
     rect = cv2.minAreaRect(points)
     box = cv2.boxPoints(rect)
     box = np.int0(box)
     distances = [np.linalg.norm(box[i] - box[(i + 1) % 4]) for i in range(4)]
     sorted_distances = sorted(distances)
-    orthogonal_ratio = sorted_distances[0] / sorted_distances[2]  # Smallest divided by longest
+    orthogonal_ratio = sorted_distances[0] / sorted_distances[2]
     return orthogonal_ratio
 
 # Feature 3 - The ratio of the number of pixels of bug divided by the number of pixels of the full image
@@ -57,6 +49,15 @@ def calculate_color_statistics(image, mask):
     std_values = np.std(bug_pixels, axis=0)
     return min_values, max_values, mean_values, median_values, std_values
 
+# Feature 6 - Perimeter and Area
+def calculate_additional_features(mask):
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if contours:
+        contour = contours[0]
+        perimeter = cv2.arcLength(contour, True)
+        area = cv2.contourArea(contour)
+        return perimeter, area
+    return 0, 0
 
 # Fonction principale pour traiter une seule image et un masque
 def process_image(image_path, mask_path):
@@ -68,6 +69,9 @@ def process_image(image_path, mask_path):
 
     # Calculer les statistiques de couleur
     min_values, max_values, mean_values, median_values, std_values = calculate_color_statistics(image, mask)
+    
+    # Calculer des fonctionnalités additionnelles
+    perimeter, area = calculate_additional_features(mask)
     
     # Calculer le ratio de pixels de l'insecte
     pixel_ratio = calculate_bug_pixel_ratio(mask)
@@ -84,6 +88,7 @@ def process_image(image_path, mask_path):
         "mean_red": mean_values[2], "mean_green": mean_values[1], "mean_blue": mean_values[0],
         "median_red": median_values[2], "median_green": median_values[1], "median_blue": median_values[0],
         "std_red": std_values[2], "std_green": std_values[1], "std_blue": std_values[0],
+        "perimeter": perimeter, "area": area, "pixel_ratio": pixel_ratio, "symmetry_index": symmetry_index,
         "orthogonal_ratio": orthogonal_ratio
     }
 
@@ -137,6 +142,11 @@ def process_directory(images_dir, masks_dir, output_file):
         'Symmetry Index', 'Orthogonal Ratio'
     ]
     df_new = pd.DataFrame(results, columns=columns)
+
+    # Vérifier le nombre de colonnes pour éviter les erreurs
+    if df_new.shape[1] != len(columns):
+        print(f"Expected {len(columns)} columns but got {df_new.shape[1]}")
+        return
 
     # Fusionner les deux DataFrames sur la colonne 'ID'
     df_combined = pd.merge(df_existing, df_new, on='ID', how='left')
