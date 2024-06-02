@@ -2,10 +2,12 @@ import os
 import numpy as np
 import pandas as pd
 import cv2
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.model_selection import RandomizedSearchCV, train_test_split
+import xgboost as xgb
 import pickle
 
-# Feature extraction functions (same as in the training script)
+# Feature extraction functions
 def calculate_symmetry_index(image):
     if len(image.shape) == 3:
         image = image[:, :, 0]
@@ -38,7 +40,7 @@ def calculate_bug_pixel_ratio(mask):
     return bug_pixel_ratio
 
 def calculate_color_statistics(image, mask):
-    mask = (mask * 255).astype(np.uint8)  # Ensure the mask is in the correct format
+    mask = (mask * 255).astype(np.uint8)
     bug_isolation = cv2.bitwise_and(image, image, mask=mask)
     bug_pixels = bug_isolation[mask != 0]
     if bug_pixels.size == 0:
@@ -67,38 +69,32 @@ def load_images_and_masks(image_dir, mask_dir, image_size=(128, 128)):
     mask_filenames = sorted(os.listdir(mask_dir))
 
     for img_filename in image_filenames:
-        img_id = os.path.splitext(img_filename)[0]  # Get the image ID without extension
-        mask_filename = f'binary_{img_id}.tif'  # Create corresponding mask filename
+        img_id = os.path.splitext(img_filename)[0]
+        mask_filename = f'binary_{img_id}.tif'
         
         if mask_filename in mask_filenames:
             img_path = os.path.join(image_dir, img_filename)
             image = cv2.imread(img_path, cv2.IMREAD_COLOR)
             if image is None:
-                print(f"Failed to load image: {img_path}")
                 continue
             image = cv2.resize(image, image_size)
-            image = image / 255.0  # Normalize image
+            image = image / 255.0
             images.append(image)
             
             mask_path = os.path.join(mask_dir, mask_filename)
             mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
             if mask is None:
-                print(f"Failed to load mask: {mask_path}")
                 continue
             mask = cv2.resize(mask, image_size)
-            mask = mask / 255.0  # Normalize mask
+            mask = mask / 255.0
             masks.append(mask)
-        else:
-            print(f"No corresponding mask found for image: {img_filename}")
     
     return np.array(images), np.array(masks)
 
 def extract_features(images, masks):
     features = []
     for i, (image, mask) in enumerate(zip(images, masks)):
-        print(f"Processing image and mask {i+1}/{len(images)}")
         if image is None or mask is None:
-            print(f"Image or mask {i+1} is None")
             continue
         
         min_values, max_values, mean_values, median_values, std_values = calculate_color_statistics(image, mask)
@@ -118,47 +114,78 @@ def extract_features(images, masks):
         
     return np.array(features)
 
-# Load the trained model and LabelEncoder
-with open('model.pkl', 'rb') as file:
-    model, le = pickle.load(file)
-
-# Load and process new images and masks
+# Load images and masks
 image_dir = 'train/images_1_to_250'
 mask_dir = 'train/masks'
 images, masks = load_images_and_masks(image_dir, mask_dir)
 
+# Check for the number of images and masks
+print(f"Number of images: {len(images)}")
+print(f"Number of masks: {len(masks)}")
+
 # Extract features
 features = extract_features(images, masks)
+
+# Check if features were extracted successfully
+if features.size == 0:
+    raise ValueError("No features were extracted. Check your images and masks.")
+else:
+    print(f"Extracted features shape: {features.shape}")
+
+# Load labels
+labels = pd.read_excel('Machine learning/données.xlsx')['bug type'].values
+
+# Adjust the labels to match the filtered images and masks
+labels = labels[:len(features)]
+
+# Encode labels
+le = LabelEncoder()
+labels_encoded = le.fit_transform(labels)
+
+# Ensure all classes are present
+all_classes = np.arange(labels_encoded.max() + 1)
+unique_classes = np.unique(labels_encoded)
+missing_classes = np.setdiff1d(all_classes, unique_classes)
+
+# Add dummy samples for missing classes
+for cls in missing_classes:
+    dummy_feature = np.zeros((1, features.shape[1]))
+    features = np.vstack([features, dummy_feature])
+    labels_encoded = np.append(labels_encoded, cls)
 
 # Standardize the features
 scaler = StandardScaler()
 features_scaled = scaler.fit_transform(features)
 
-# Predict using the trained model
-predictions = model.predict(features_scaled)
-predicted_labels = le.inverse_transform(predictions)
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(features_scaled, labels_encoded, test_size=0.2, random_state=42)
 
-# Load actual insect types from données.xlsx for comparison
-actual_data = pd.read_excel('Machine learning/données.xlsx')
-actual_labels = actual_data['bug type'].values
-actual_image_ids = actual_data['ID'].astype(str).values
+# Define the XGBoost model
+model = xgb.XGBClassifier(use_label_encoder=False, eval_metric='mlogloss')
 
-# Initialize counters for accuracy calculation
-correct_predictions = 0
-total_predictions = len(predicted_labels)
+# Define the parameter grid for hyperparameter tuning
+param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [3, 6, 9],
+    'learning_rate': [0.01, 0.1, 0.2],
+    'subsample': [0.8, 0.9, 1.0]
+}
 
-# Compare predictions with actual insect types
-for i, pred in enumerate(predicted_labels):
-    image_id = os.path.splitext(os.listdir(image_dir)[i])[0]
-    actual_index = np.where(actual_image_ids == image_id)[0]
-    if len(actual_index) > 0:
-        actual_label = actual_labels[actual_index[0]]
-        if actual_label == pred:
-            correct_predictions += 1
-        print(f"Image {i+1}: Actual insect type: {actual_label}, Predicted insect type: {pred}")
-    else:
-        print(f"Image {i+1}: Actual insect type: Not found, Predicted insect type: {pred}")
+# Setup the randomized search with cross-validation
+random_search = RandomizedSearchCV(estimator=model, param_distributions=param_grid, n_iter=50, cv=5, n_jobs=-1, scoring='accuracy')
 
-# Calculate and print the percentage of correct predictions
-accuracy_percentage = (correct_predictions / total_predictions) * 100
-print(f"Accuracy: {accuracy_percentage:.2f}%")
+# Fit the model with randomized search
+random_search.fit(X_train, y_train)
+
+# Get the best parameters
+best_params = random_search.best_params_
+print(f"Best parameters found: {best_params}")
+
+# Train the final model with the best parameters
+best_model = random_search.best_estimator_
+
+# Save the trained model and the label encoder
+with open('model.pkl', 'wb') as file:
+    pickle.dump((best_model, le), file)
+
+print("Model and LabelEncoder trained and saved as model.pkl with best parameters")
