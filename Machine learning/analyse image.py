@@ -5,7 +5,7 @@ import cv2
 from sklearn.preprocessing import StandardScaler
 import pickle
 
-# Feature extraction functions (same as in the training script)
+# Feature extraction functions
 def calculate_symmetry_index(image):
     if len(image.shape) == 3:
         image = image[:, :, 0]
@@ -38,7 +38,7 @@ def calculate_bug_pixel_ratio(mask):
     return bug_pixel_ratio
 
 def calculate_color_statistics(image, mask):
-    mask = (mask * 255).astype(np.uint8)  # Ensure the mask is in the correct format
+    mask = (mask * 255).astype(np.uint8)
     bug_isolation = cv2.bitwise_and(image, image, mask=mask)
     bug_pixels = bug_isolation[mask != 0]
     if bug_pixels.size == 0:
@@ -67,8 +67,8 @@ def load_images_and_masks(image_dir, mask_dir, image_size=(128, 128)):
     mask_filenames = sorted(os.listdir(mask_dir))
 
     for img_filename in image_filenames:
-        img_id = os.path.splitext(img_filename)[0]  # Get the image ID without extension
-        mask_filename = f'binary_{img_id}.tif'  # Create corresponding mask filename
+        img_id = os.path.splitext(img_filename)[0]
+        mask_filename = f'binary_{img_id}.tif'
         
         if mask_filename in mask_filenames:
             img_path = os.path.join(image_dir, img_filename)
@@ -77,7 +77,7 @@ def load_images_and_masks(image_dir, mask_dir, image_size=(128, 128)):
                 print(f"Failed to load image: {img_path}")
                 continue
             image = cv2.resize(image, image_size)
-            image = image / 255.0  # Normalize image
+            image = image / 255.0
             images.append(image)
             
             mask_path = os.path.join(mask_dir, mask_filename)
@@ -86,7 +86,7 @@ def load_images_and_masks(image_dir, mask_dir, image_size=(128, 128)):
                 print(f"Failed to load mask: {mask_path}")
                 continue
             mask = cv2.resize(mask, image_size)
-            mask = mask / 255.0  # Normalize mask
+            mask = mask / 255.0
             masks.append(mask)
         else:
             print(f"No corresponding mask found for image: {img_filename}")
@@ -143,6 +143,9 @@ actual_data = pd.read_excel('Machine learning/données.xlsx')
 actual_labels = actual_data['bug type'].values
 actual_image_ids = actual_data['ID'].astype(str).values
 
+# Map species to bee, bumblebee, or other
+mapped_actual_labels = np.array(['bee' if 'bee' in label.lower() else 'bumblebee' if 'bumblebee' in label.lower() else 'other' for label in actual_labels])
+
 # Initialize counters for accuracy calculation
 correct_predictions = 0
 total_predictions = len(predicted_labels)
@@ -152,7 +155,7 @@ for i, pred in enumerate(predicted_labels):
     image_id = os.path.splitext(os.listdir(image_dir)[i])[0]
     actual_index = np.where(actual_image_ids == image_id)[0]
     if len(actual_index) > 0:
-        actual_label = actual_labels[actual_index[0]]
+        actual_label = mapped_actual_labels[actual_index[0]]
         if actual_label == pred:
             correct_predictions += 1
         print(f"Image {i+1}: Actual insect type: {actual_label}, Predicted insect type: {pred}")

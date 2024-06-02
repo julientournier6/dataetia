@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import cv2
 from sklearn.preprocessing import StandardScaler, LabelEncoder
-from sklearn.model_selection import RandomizedSearchCV, train_test_split
+from sklearn.model_selection import RandomizedSearchCV, train_test_split, StratifiedKFold
 import xgboost as xgb
 import pickle
 
@@ -114,7 +114,18 @@ def extract_features(images, masks):
         
     return np.array(features)
 
-# Load images and masks
+# Load previous data if it exists
+features_file = 'features.npy'
+labels_file = 'labels.npy'
+
+if os.path.exists(features_file) and os.path.exists(labels_file):
+    features = np.load(features_file, allow_pickle=True)
+    labels = np.load(labels_file, allow_pickle=True)
+else:
+    features = np.empty((0, 20))
+    labels = np.empty(0)
+
+# Load new images and masks
 image_dir = 'train/images_1_to_250'
 mask_dir = 'train/masks'
 images, masks = load_images_and_masks(image_dir, mask_dir)
@@ -123,20 +134,36 @@ images, masks = load_images_and_masks(image_dir, mask_dir)
 print(f"Number of images: {len(images)}")
 print(f"Number of masks: {len(masks)}")
 
-# Extract features
-features = extract_features(images, masks)
+# Extract new features
+new_features = extract_features(images, masks)
 
 # Check if features were extracted successfully
-if features.size == 0:
+if new_features.size == 0:
     raise ValueError("No features were extracted. Check your images and masks.")
 else:
-    print(f"Extracted features shape: {features.shape}")
+    print(f"Extracted features shape: {new_features.shape}")
 
 # Load labels
-labels = pd.read_excel('Machine learning/données.xlsx')['bug type'].values
+new_labels = pd.read_excel('Machine learning/données.xlsx')['bug type'].values
 
 # Adjust the labels to match the filtered images and masks
-labels = labels[:len(features)]
+new_labels = new_labels[:len(new_features)]
+
+# Combine with previous data
+features = np.vstack((features, new_features))
+labels = np.concatenate((labels, new_labels))
+
+# Save the updated features and labels
+np.save(features_file, features, allow_pickle=True)
+np.save(labels_file, labels, allow_pickle=True)
+
+# Create a dictionary to count the frequency of each class
+label_counts = pd.Series(labels).value_counts()
+total_samples = len(labels)
+threshold = 0.05 * total_samples  # 5% threshold
+
+# Map less frequent classes to "other"
+labels = np.array([label if label_counts[label] >= threshold else 'other' for label in labels])
 
 # Encode labels
 le = LabelEncoder()
@@ -157,8 +184,8 @@ for cls in missing_classes:
 scaler = StandardScaler()
 features_scaled = scaler.fit_transform(features)
 
-# Split the data into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(features_scaled, labels_encoded, test_size=0.2, random_state=42)
+# Split the data into training and testing sets using stratified sampling
+X_train, X_test, y_train, y_test = train_test_split(features_scaled, labels_encoded, test_size=0.2, random_state=42, stratify=labels_encoded)
 
 # Define the XGBoost model
 model = xgb.XGBClassifier(use_label_encoder=False, eval_metric='mlogloss')
@@ -172,7 +199,7 @@ param_grid = {
 }
 
 # Setup the randomized search with cross-validation
-random_search = RandomizedSearchCV(estimator=model, param_distributions=param_grid, n_iter=50, cv=5, n_jobs=-1, scoring='accuracy')
+random_search = RandomizedSearchCV(estimator=model, param_distributions=param_grid, n_iter=50, cv=StratifiedKFold(n_splits=5), n_jobs=-1, scoring='accuracy')
 
 # Fit the model with randomized search
 random_search.fit(X_train, y_train)
