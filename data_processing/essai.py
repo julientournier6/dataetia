@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import pandas as pd
 import os
+from skimage.feature import graycomatrix, graycoprops
 
 # Feature 1 - Symmetry Index
 def calculate_symmetry_index(image):
@@ -72,6 +73,25 @@ def calculate_eccentricity(mask):
             return eccentricity
     return 0
 
+#Feature 7 - Texture
+def calculate_haralick_features(mask):
+    if len(mask.shape) == 3:
+        mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+    glcm = graycomatrix(mask, distances=[1], angles=[0, np.pi/4, np.pi/2, 3*np.pi/4], symmetric=True, normed=True)
+    
+    # Extraire les Haralick features
+    features = []
+    properties = ['contrast', 'dissimilarity', 'homogeneity', 'energy', 'correlation', 'ASM']
+    for prop in properties:
+        for i in range(glcm.shape[2]):
+            feature = graycoprops(glcm, prop=prop)[0, i]
+            features.append(feature)
+    
+    return features
+
+#Feature 8 - 
+
+#Feature 9 - 
 
 
 # Fonction principale pour traiter une seule image et un masque
@@ -97,6 +117,9 @@ def process_image(image_path, mask_path):
     # Calculer le ratio orthogonal
     orthogonal_ratio = calculate_orthogonal_ratio(mask)
 
+    #Calculer les Haralick features
+    haralick_features = calculate_haralick_features(mask)
+
     return {
         "min_red": min_values[2], "min_green": min_values[1], "min_blue": min_values[0],
         "max_red": max_values[2], "max_green": max_values[1], "max_blue": max_values[0],
@@ -104,7 +127,10 @@ def process_image(image_path, mask_path):
         "median_red": median_values[2], "median_green": median_values[1], "median_blue": median_values[0],
         "std_red": std_values[2], "std_green": std_values[1], "std_blue": std_values[0],
         "eccentricity":eccentricity , "pixel_ratio": pixel_ratio, "symmetry_index": symmetry_index,
-        "orthogonal_ratio": orthogonal_ratio
+        "orthogonal_ratio": orthogonal_ratio,
+        "haralick_contrast": haralick_features[0], "haralick_dissimilarity": haralick_features[1],
+        "haralick_homogeneity": haralick_features[2], "haralick_energy": haralick_features[3],
+        "haralick_correlation": haralick_features[4], "haralick_ASM": haralick_features[5]
     }
 
 # Fonction pour traiter toutes les images dans un répertoire donné
@@ -150,7 +176,8 @@ def process_directory(images_dir, masks_dir, output_file):
         'Image', 'Min Red', 'Min Green', 'Min Blue', 'Max Red', 'Max Green', 'Max Blue',
         'Mean Red', 'Mean Green', 'Mean Blue', 'Median Red', 'Median Green', 'Median Blue',
         'Std Dev Red', 'Std Dev Green', 'Std Dev Blue', 'Eccentricity', 'Pixel Ratio',
-        'Symmetry Index', 'Orthogonal Ratio'
+        'Symmetry Index', 'Orthogonal Ratio','Haralick Contrast', 'Haralick Dissimilarity',
+        'Haralick Homogeneity', 'Haralick Energy', 'Haralick Correlation', 'Haralick ASM'
     ]
     if results:
         df = pd.DataFrame(results, columns=columns)
