@@ -1,7 +1,7 @@
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
-from sklearn.cluster import KMeans
+from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics import silhouette_score
 
 # Charger les données depuis le fichier Excel
@@ -32,9 +32,9 @@ X = imputer.fit_transform(X)
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 
-# Appliquer k-means avec k clusters (nombre de catégories)
-kmeans = KMeans(n_clusters=4, random_state=42)
-clusters = kmeans.fit_predict(X_scaled)
+# Appliquer l'agglomerative clustering avec 4 clusters
+agglo = AgglomerativeClustering(n_clusters=4)
+clusters = agglo.fit_predict(X_scaled)
 
 # Évaluer le modèle de clustering avec le score de silhouette
 silhouette_avg = silhouette_score(X_scaled, clusters)
