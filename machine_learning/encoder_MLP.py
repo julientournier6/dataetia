@@ -43,7 +43,7 @@ autoencoder = Model(inputs=input_layer, outputs=decoder)
 autoencoder.compile(optimizer=Adam(learning_rate=0.001), loss='mse')
 
 # Entraîner l'autoencodeur
-autoencoder.fit(X_train, X_train, epochs=50, batch_size=32, shuffle=True, validation_split=0.2, verbose=1)
+autoencoder.fit(X_train, X_train, epochs=50, batch_size=64, shuffle=True, validation_split=0.2, verbose=1)
 
 # Utiliser l'encodeur pour obtenir les caractéristiques réduites
 encoder_model = Model(inputs=input_layer, outputs=encoder)
@@ -58,8 +58,9 @@ y_pred_lr = logistic_regression.predict(X_test_encoded)
 accuracy_lr = accuracy_score(y_test, y_pred_lr)
 print("Logistic Regression Accuracy: {:.2f}%".format(accuracy_lr * 100))
 
-# Choix 2: Perceptron Multicouche (MLP)
-mlp = MLPClassifier(hidden_layer_sizes=(100,), max_iter=300, random_state=42)
+# Choix 2: Perceptron Multicouche (MLP) avec optimisations
+mlp = MLPClassifier(hidden_layer_sizes=(200, 100), max_iter=1500, alpha=0.01,
+                    solver='adam', random_state=42, learning_rate_init=0.0001)
 mlp.fit(X_train_encoded, y_train)
 y_pred_mlp = mlp.predict(X_test_encoded)
 accuracy_mlp = accuracy_score(y_test, y_pred_mlp)
