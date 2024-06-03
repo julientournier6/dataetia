@@ -89,7 +89,33 @@ def calculate_haralick_features(mask):
     
     return features
 
-#Feature 8 - 
+#Feature 8 - Shape Descriptors
+def calculate_shape_descriptors(mask):
+    points = np.column_stack(np.where(mask > 0))
+    if points.shape[0] >= 5:
+        rect = cv2.minAreaRect(points)
+        box = cv2.boxPoints(rect)
+        box = np.int0(box)
+        
+        # Calculate area and perimeter directly from the mask
+        area = np.sum(mask > 0)
+        perimeter = cv2.arcLength(box, True)
+        
+        # Calculate circularity
+        if perimeter != 0:
+            circularity = 4 * np.pi * area / (perimeter ** 2)
+        else:
+            circularity = 0
+        
+        # Calculate compactness
+        if area != 0:
+            compactness = perimeter ** 2 / area
+        else:
+            compactness = 0
+        
+        return circularity, compactness
+    else:
+        return 0, 0, 0
 
 #Feature 9 - 
 
@@ -120,6 +146,10 @@ def process_image(image_path, mask_path):
     #Calculer les Haralick features
     haralick_features = calculate_haralick_features(mask)
 
+    # Calculer les descripteurs de forme
+    circularity, compactness = calculate_shape_descriptors(mask)
+    
+
     return {
         "min_red": min_values[2], "min_green": min_values[1], "min_blue": min_values[0],
         "max_red": max_values[2], "max_green": max_values[1], "max_blue": max_values[0],
@@ -130,7 +160,8 @@ def process_image(image_path, mask_path):
         "orthogonal_ratio": orthogonal_ratio,
         "haralick_contrast": haralick_features[0], "haralick_dissimilarity": haralick_features[1],
         "haralick_homogeneity": haralick_features[2], "haralick_energy": haralick_features[3],
-        "haralick_correlation": haralick_features[4], "haralick_ASM": haralick_features[5]
+        "haralick_correlation": haralick_features[4], "haralick_ASM": haralick_features[5],
+        "circularity": circularity, "compactness": compactness
     }
 
 # Fonction pour traiter toutes les images dans un répertoire donné
@@ -177,7 +208,8 @@ def process_directory(images_dir, masks_dir, output_file):
         'Mean Red', 'Mean Green', 'Mean Blue', 'Median Red', 'Median Green', 'Median Blue',
         'Std Dev Red', 'Std Dev Green', 'Std Dev Blue', 'Eccentricity', 'Pixel Ratio',
         'Symmetry Index', 'Orthogonal Ratio','Haralick Contrast', 'Haralick Dissimilarity',
-        'Haralick Homogeneity', 'Haralick Energy', 'Haralick Correlation', 'Haralick ASM'
+        'Haralick Homogeneity', 'Haralick Energy', 'Haralick Correlation', 'Haralick ASM',
+        'Circularity', 'Compactness'
     ]
     if results:
         df = pd.DataFrame(results, columns=columns)
