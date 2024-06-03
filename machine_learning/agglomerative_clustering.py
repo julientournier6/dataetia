@@ -3,7 +3,6 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.decomposition import PCA
-from sklearn.metrics import accuracy_score
 
 # Charger les données
 data_train = pd.read_excel('machine_learning/données.xlsx')
@@ -16,8 +15,13 @@ data_train.columns = [col.split('_')[0] if '_' in col else col for col in data_t
 X_train = data_train.drop(columns=['ID', 'bug type', 'species'])
 y_train = data_train['bug type']
 
+# Vérifier les colonnes disponibles dans data_test
+print("Colonnes de data_test avant alignement :")
+print(data_test.columns)
+
 # Assurer que les colonnes de data_test correspondent à celles de X_train
-X_test = data_test[X_train.columns]
+columns_to_keep = [col for col in X_train.columns if col in data_test.columns]
+X_test = data_test[columns_to_keep]
 
 # Normaliser les données
 scaler = StandardScaler()
