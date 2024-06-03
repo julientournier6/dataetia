@@ -33,7 +33,7 @@ scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 
 # Appliquer le k-means avec 4 clusters
-kmeans = KMeans(n_clusters=4)
+kmeans = KMeans(n_clusters=4, n_init=10, random_state=42)
 clusters = kmeans.fit_predict(X_scaled)
 
 # Évaluer le modèle de clustering avec le score de silhouette
