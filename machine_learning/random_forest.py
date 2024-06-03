@@ -3,6 +3,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from sklearn.impute import SimpleImputer
 
 # Charger les données depuis le fichier Excel
 file_path = 'machine_learning/données.xlsx'
@@ -15,6 +16,10 @@ print(data.dtypes)
 # Séparer les caractéristiques (features) et l'étiquette (target)
 X = data.drop(columns=['ID', 'bug type', 'species'])  # Caractéristiques
 y = data['bug type']  # Étiquette
+
+# Gérer les valeurs manquantes en utilisant SimpleImputer
+imputer = SimpleImputer(strategy='mean')
+X = imputer.fit_transform(X)
 
 # Diviser les données en ensembles d'entraînement et de test
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
