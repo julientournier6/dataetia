@@ -66,6 +66,6 @@ def combine_excel_files(grostest_path, classif_test_path):
 
 if __name__ == "__main__":
     grostest_path = 'train/grostest.xlsx'
-    classif_test_path = 'train/classif_test.xlsx'
+    classif_test_path = 'classif_test.xlsx'
 
     combine_excel_files(grostest_path, classif_test_path)
