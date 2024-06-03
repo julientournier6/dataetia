@@ -1,11 +1,9 @@
 import pandas as pd
-import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 from sklearn.impute import SimpleImputer
-
 
 # Charger les données depuis le fichier Excel
 file_path = 'machine_learning/données.xlsx'
@@ -42,21 +40,14 @@ y_pred = model.predict(X_test)
 
 # Évaluer les performances du modèle
 conf_matrix = confusion_matrix(y_test, y_pred)
-class_report = classification_report(y_test, y_pred, output_dict=True)
+class_report = classification_report(y_test, y_pred)
 accuracy = accuracy_score(y_test, y_pred)
 
 # Afficher les résultats
-print("Confusion Matrix (en pourcentage):")
-conf_matrix_percentage = conf_matrix / conf_matrix.sum(axis=1)[:, np.newaxis] * 100
-print(conf_matrix_percentage)
+print("Confusion Matrix:")
+print(conf_matrix)
 
-print("\nClassification Report (en pourcentage):")
-for label, metrics in class_report.items():
-    if isinstance(metrics, dict):
-        print(f"Classe {label}:")
-        for metric, value in metrics.items():
-            print(f"  {metric}: {value * 100:.2f}%")
-    else:
-        print(f"{label}: {metrics * 100:.2f}%")
+print("\nClassification Report:")
+print(class_report)
 
 print(f"\nAccuracy Score: {accuracy * 100:.2f}%")
