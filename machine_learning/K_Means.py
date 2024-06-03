@@ -1,41 +1,32 @@
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
-from sklearn.impute import SimpleImputer
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 
 # Charger les données depuis le fichier Excel
-file_path = 'machine_learning/données.xlsx'
-data = pd.read_excel(file_path)
+data_path = 'machine_learning/données.xlsx'
+data = pd.read_excel(data_path)
 
-# Créer une nouvelle colonne 'bug_category' pour les quatre catégories
-def categorize_bug(bug_type):
-    if bug_type == 'Bee':
-        return 'Bee'
-    elif bug_type == 'Bumblebee':
-        return 'Bumblebee'
-    elif bug_type == 'Butterfly':
-        return 'Butterfly'
-    else:
-        return 'Others'
+# Sélectionner les caractéristiques pour le clustering
+features = data.drop(columns=['ID', 'bug type', 'species'])
 
-data['bug_category'] = data['bug type'].apply(categorize_bug)
-
-# Séparer les caractéristiques (features)
-X = data.drop(columns=['ID', 'bug type', 'species', 'bug_category'])  # Caractéristiques
-
-# Gérer les valeurs manquantes en utilisant SimpleImputer
-imputer = SimpleImputer(strategy='mean')
-X = imputer.fit_transform(X)
+# Gérer les valeurs manquantes
+features = features.fillna(features.mean())
 
 # Standardiser les données
 scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
+features_scaled = scaler.fit_transform(features)
 
-# Appliquer le k-means avec 4 clusters
-kmeans = KMeans(n_clusters=4, n_init=10, random_state=42)
-clusters = kmeans.fit_predict(X_scaled)
+# Essayer différents nombres de clusters pour voir lequel donne le meilleur score de silhouette
+best_score = -1
+best_k = 0
+for k in range(2, 10):  # Essayez différentes valeurs de k
+    kmeans = KMeans(n_clusters=k, random_state=42)
+    cluster_labels = kmeans.fit_predict(features_scaled)
+    score = silhouette_score(features_scaled, cluster_labels)
+    print(f"Silhouette score for {k} clusters: {score:.2f}")
+    if score > best_score:
+        best_score = score
+        best_k = k
 
-# Évaluer le modèle de clustering avec le score de silhouette
-silhouette_avg = silhouette_score(X_scaled, clusters)
-print(f"Silhouette Score: {silhouette_avg:.2f}")
+print(f"Best number of clusters: {best_k} with a silhouette score of {best_score:.2f}")
