@@ -9,13 +9,26 @@ from sklearn.impute import SimpleImputer
 file_path = 'machine_learning/données.xlsx'
 data = pd.read_excel(file_path)
 
+# Créer une nouvelle colonne 'bug_category' pour les quatre catégories
+def categorize_bug(bug_type):
+    if bug_type == 'Bee':
+        return 'Bee'
+    elif bug_type == 'Bumblebee':
+        return 'Bumblebee'
+    elif bug_type == 'Butterfly':
+        return 'Butterfly'
+    else:
+        return 'Others'
+
+data['bug_category'] = data['bug type'].apply(categorize_bug)
+
 # Afficher un aperçu des données
 print(data.head())
 print(data.dtypes)
 
 # Séparer les caractéristiques (features) et l'étiquette (target)
-X = data.drop(columns=['ID', 'bug type', 'species'])  # Caractéristiques
-y = data['bug type']  # Étiquette
+X = data.drop(columns=['ID', 'bug type', 'species', 'bug_category'])  # Caractéristiques
+y = data['bug_category']  # Étiquette
 
 # Gérer les valeurs manquantes en utilisant SimpleImputer
 imputer = SimpleImputer(strategy='mean')
