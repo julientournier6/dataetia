@@ -1,69 +1,51 @@
 import pandas as pd
-from sklearn.model_selection import train_test_split
+import numpy as np
 from sklearn.preprocessing import StandardScaler
-from sklearn.cluster import AgglomerativeClustering
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
-from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.decomposition import PCA
 
-# Charger les données depuis le fichier Excel
-file_path = 'machine_learning/données.xlsx'
-data = pd.read_excel(file_path)
+# Charger les données
+data_train = pd.read_excel('machine_learning/données.xlsx')
+data_test = pd.read_excel('machine_learning/données2.xlsx')
 
-# Créer une nouvelle colonne 'bug_category' pour les quatre catégories
-def categorize_bug(bug_type):
-    if bug_type == 'Bee':
-        return 'Bee'
-    elif bug_type == 'Bumblebee':
-        return 'Bumblebee'
-    elif bug_type == 'Butterfly':
-        return 'Butterfly'
-    else:
-        return 'Others'
+# Renommer les colonnes de data_train pour enlever les suffixes _x et _y
+data_train.columns = [col.split('_')[0].lower() if '_' in col else col.lower() for col in data_train.columns]
 
-data['bug_category'] = data['bug type'].apply(categorize_bug)
+# Supprimer les colonnes inutiles pour l'entraînement
+X_train = data_train.drop(columns=['id', 'bug type', 'species'])
+y_train = data_train['bug type']
 
-# Afficher un aperçu des données
-print(data.head())
-print(data.dtypes)
+# Vérifier les colonnes disponibles dans data_test
+print("Colonnes de data_test avant alignement :")
+print(data_test.columns)
 
-# Séparer les caractéristiques (features) et l'étiquette (target)
-X = data.drop(columns=['ID', 'bug type', 'species', 'bug_category'])  # Caractéristiques
-y = data['bug_category']  # Étiquette
+# Assurer que les colonnes de data_test sont en minuscules et correspondent à celles de X_train
+data_test.columns = [col.lower() for col in data_test.columns]
+columns_to_keep = [col for col in X_train.columns if col in data_test.columns]
+X_test = data_test[columns_to_keep]
 
-# Gérer les valeurs manquantes en utilisant SimpleImputer
-imputer = SimpleImputer(strategy='mean')
-X = imputer.fit_transform(X)
-
-# Standardiser les données
+# Normaliser les données
 scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
 
-# Créer le modèle Agglomerative Clustering
-agg_clustering = AgglomerativeClustering(n_clusters=4)
+# Construire l'auto-encodeur avec PCA (comme une alternative simple)
+pca = PCA(n_components=32)  # Vous pouvez ajuster cette valeur
+X_train_encoded = pca.fit_transform(X_train_scaled)
+X_test_encoded = pca.transform(X_test_scaled)
 
-# Entraîner le modèle et prédire les clusters
-clusters = agg_clustering.fit_predict(X_scaled)
+# Entraîner un modèle supervisé sur les caractéristiques encodées
+# Utiliser la régression logistique pour cette tâche
+log_reg = LogisticRegression(max_iter=1000, random_state=42)
+log_reg.fit(X_train_encoded, y_train)
 
-# Mapping des clusters aux catégories
-cluster_map = {}
-for cluster in range(4):
-    mask = (clusters == cluster)
-    most_common = y[mask].mode().values[0]
-    cluster_map[cluster] = most_common
+# Prédire les labels pour le nouveau dataset
+y_test_pred = log_reg.predict(X_test_encoded)
 
-# Traduire les clusters en catégories
-y_pred = pd.Series(clusters).map(cluster_map)
+# Ajouter les prédictions au DataFrame de test
+data_test['Predicted Bug Type'] = y_test_pred
 
-# Évaluer les performances du modèle
-conf_matrix = confusion_matrix(y, y_pred)
-class_report = classification_report(y, y_pred)
-accuracy = accuracy_score(y, y_pred)
+# Enregistrer les prédictions dans un fichier Excel
+data_test.to_excel('machine_learning/predicted_données2.xlsx', index=False)
 
-# Afficher les résultats
-print("Confusion Matrix:")
-print(conf_matrix)
-
-print("\nClassification Report:")
-print(class_report)
-
-print(f"\nAccuracy Score: {accuracy * 100:.2f}%")
+print("Prédictions enregistrées dans 'machine_learning/predicted_données2.xlsx'")
