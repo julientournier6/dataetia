@@ -133,7 +133,7 @@ def process_directory(images_dir, masks_dir, output_file):
                'Symmetry Index', 'Orthogonal Ratio']
 
     if results:
-        df_results = pd.DataFrame(results, columns=columns)
+        df_results = pd.DataFrame(results)
         print(df_results.head())  # Afficher les premières lignes du DataFrame pour vérification
         
         # Sauvegarder les résultats dans un fichier Excel
