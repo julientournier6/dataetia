@@ -39,9 +39,22 @@ model.fit(X_train, y_train)
 y_pred = model.predict(X_test)
 
 # Évaluer les performances du modèle
-print("Confusion Matrix:")
-print(confusion_matrix(y_test, y_pred))
-print("\nClassification Report:")
-print(classification_report(y_test, y_pred))
-print("\nAccuracy Score:")
-print(accuracy_score(y_test, y_pred))
+conf_matrix = confusion_matrix(y_test, y_pred)
+class_report = classification_report(y_test, y_pred, output_dict=True)
+accuracy = accuracy_score(y_test, y_pred)
+
+# Afficher les résultats
+print("Confusion Matrix (en pourcentage):")
+conf_matrix_percentage = conf_matrix / conf_matrix.sum(axis=1)[:, np.newaxis] * 100
+print(conf_matrix_percentage)
+
+print("\nClassification Report (en pourcentage):")
+for label, metrics in class_report.items():
+    if isinstance(metrics, dict):
+        print(f"Classe {label}:")
+        for metric, value in metrics.items():
+            print(f"  {metric}: {value * 100:.2f}%")
+    else:
+        print(f"{label}: {metrics * 100:.2f}%")
+
+print(f"\nAccuracy Score: {accuracy * 100:.2f}%")
