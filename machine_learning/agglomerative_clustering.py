@@ -1,8 +1,6 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
-from sklearn.neural_network import MLPClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.decomposition import PCA
 from sklearn.metrics import accuracy_score
@@ -11,11 +9,15 @@ from sklearn.metrics import accuracy_score
 data_train = pd.read_excel('machine_learning/données.xlsx')
 data_test = pd.read_excel('machine_learning/données2.xlsx')
 
+# Renommer les colonnes de data_train pour enlever les suffixes _x et _y
+data_train.columns = [col.split('_')[0] if '_' in col else col for col in data_train.columns]
+
 # Supprimer les colonnes inutiles pour l'entraînement
 X_train = data_train.drop(columns=['ID', 'bug type', 'species'])
 y_train = data_train['bug type']
 
-X_test = data_test.drop(columns=['ID'])
+# Assurer que les colonnes de data_test correspondent à celles de X_train
+X_test = data_test[X_train.columns]
 
 # Normaliser les données
 scaler = StandardScaler()
