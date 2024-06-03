@@ -65,7 +65,7 @@ def combine_excel_files(grostest_path, classif_test_path):
         print(f"Failed to save combined data: {e}")
 
 if __name__ == "__main__":
-    grostest_path = 'train/grostest.xlsx'
-    classif_test_path = 'classif_test.xlsx'
+    grostest_path = 'train/test_features.xlsx'
+    classif_test_path = 'classif_test_v2.xlsx'
 
     combine_excel_files(grostest_path, classif_test_path)

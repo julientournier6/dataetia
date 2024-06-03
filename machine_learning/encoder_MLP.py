@@ -11,7 +11,7 @@ from tensorflow.keras.layers import Input, Dense
 from tensorflow.keras.optimizers import Adam
 
 # Charger les données
-data_train = pd.read_excel('machine_learning/données.xlsx')
+data_train = pd.read_excel('classif_test_v2.xlsx')
 
 # Normaliser les noms de colonnes en supprimant les suffixes _x et _y et en les convertissant en minuscules
 data_train.columns = [col.split('_')[0].strip().lower() for col in data_train.columns]
@@ -33,17 +33,17 @@ X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, 
 
 # Construire l'autoencodeur
 input_dim = X_train.shape[1]
-encoding_dim = 32  # Vous pouvez ajuster ce nombre de dimensions encodées
+encoding_dim = 128  # Vous pouvez ajuster ce nombre de dimensions encodées
 
 input_layer = Input(shape=(input_dim,))
 encoder = Dense(encoding_dim, activation='relu')(input_layer)
 decoder = Dense(input_dim, activation='sigmoid')(encoder)
 
 autoencoder = Model(inputs=input_layer, outputs=decoder)
-autoencoder.compile(optimizer=Adam(learning_rate=0.001), loss='mse')
+autoencoder.compile(optimizer=Adam(learning_rate=0.0005), loss='mse')
 
 # Entraîner l'autoencodeur
-autoencoder.fit(X_train, X_train, epochs=50, batch_size=64, shuffle=True, validation_split=0.2, verbose=1)
+autoencoder.fit(X_train, X_train, epochs=50, batch_size=128, shuffle=True, validation_split=0.2, verbose=1)
 
 # Utiliser l'encodeur pour obtenir les caractéristiques réduites
 encoder_model = Model(inputs=input_layer, outputs=encoder)
@@ -59,9 +59,11 @@ accuracy_lr = accuracy_score(y_test, y_pred_lr)
 print("Logistic Regression Accuracy: {:.2f}%".format(accuracy_lr * 100))
 
 # Choix 2: Perceptron Multicouche (MLP) avec optimisations
-mlp = MLPClassifier(hidden_layer_sizes=(200, 100), max_iter=1500, alpha=0.01,
+mlp = MLPClassifier(hidden_layer_sizes=(200, 100), max_iter=1500, alpha=0.001,
                     solver='adam', random_state=42, learning_rate_init=0.0001)
 mlp.fit(X_train_encoded, y_train)
 y_pred_mlp = mlp.predict(X_test_encoded)
 accuracy_mlp = accuracy_score(y_test, y_pred_mlp)
 print("MLP Accuracy: {:.2f}%".format(accuracy_mlp * 100))
+
+
