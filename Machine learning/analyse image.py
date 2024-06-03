@@ -124,7 +124,7 @@ with open('model.pkl', 'rb') as file:
 
 # Load and process new images and masks
 image_dir = 'train/images_1_to_250'
-mask_dir = 'train/masks'
+mask_dir = 'train/masks_1_to_250'
 images, masks = load_images_and_masks(image_dir, mask_dir)
 
 # Extract features

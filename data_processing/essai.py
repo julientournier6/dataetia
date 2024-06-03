@@ -163,7 +163,7 @@ def process_directory(images_dir, masks_dir, classif_file):
 
 # Définir les répertoires et les fichiers de sortie
 images_dir = 'train/images_1_to_250'
-masks_dir = 'train/masks'
+masks_dir = 'train/masks_1_to_250'
 classif_file = 'train/classif_test.xlsx'
 
 # Traiter les images et sauvegarder les résultats

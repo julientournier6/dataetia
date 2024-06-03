@@ -127,7 +127,7 @@ else:
 
 # Load new images and masks
 image_dir = 'train/images_1_to_250'
-mask_dir = 'train/masks'
+mask_dir = 'train/masks_1_to_250'
 images, masks = load_images_and_masks(image_dir, mask_dir)
 
 # Check for the number of images and masks

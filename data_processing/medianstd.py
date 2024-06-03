@@ -18,7 +18,7 @@ def median_std(image, mask):
 
 
 image_path = 'train\images_1_to_250' 
-mask_path = 'train\masks'
+mask_path = 'train/masks_1_to_250'
 image = cv2.imread(image_path, cv2.IMREAD_COLOR)
 mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
 

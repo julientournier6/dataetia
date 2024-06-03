@@ -4,7 +4,7 @@ import cv2
 import pandas as pd
 
 images_dir = 'train/images_1_to_250'
-masks_dir = 'train/masks'
+masks_dir = 'train/masks_1_to_250'
 output_file = 'train/testratio.xlsx'
 
 def calculate_bug_pixel_ratio(mask):
