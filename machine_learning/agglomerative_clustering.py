@@ -1,7 +1,7 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 from sklearn.impute import SimpleImputer
 
@@ -34,27 +34,30 @@ y = data['bug_category']  # Étiquette
 imputer = SimpleImputer(strategy='mean')
 X = imputer.fit_transform(X)
 
-# Diviser les données en ensembles d'entraînement et de test
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-
 # Standardiser les données
 scaler = StandardScaler()
-X_train = scaler.fit_transform(X_train)
-X_test = scaler.transform(X_test)
+X_scaled = scaler.fit_transform(X)
 
-# Créer le modèle Random Forest
-model = RandomForestClassifier(n_estimators=100, random_state=42)
+# Créer le modèle Agglomerative Clustering
+agg_clustering = AgglomerativeClustering(n_clusters=4)
 
-# Entraîner le modèle
-model.fit(X_train, y_train)
+# Entraîner le modèle et prédire les clusters
+clusters = agg_clustering.fit_predict(X_scaled)
 
-# Faire des prédictions sur l'ensemble de test
-y_pred = model.predict(X_test)
+# Mapping des clusters aux catégories
+cluster_map = {}
+for cluster in range(4):
+    mask = (clusters == cluster)
+    most_common = y[mask].mode().values[0]
+    cluster_map[cluster] = most_common
+
+# Traduire les clusters en catégories
+y_pred = pd.Series(clusters).map(cluster_map)
 
 # Évaluer les performances du modèle
-conf_matrix = confusion_matrix(y_test, y_pred)
-class_report = classification_report(y_test, y_pred)
-accuracy = accuracy_score(y_test, y_pred)
+conf_matrix = confusion_matrix(y, y_pred)
+class_report = classification_report(y, y_pred)
+accuracy = accuracy_score(y, y_pred)
 
 # Afficher les résultats
 print("Confusion Matrix:")

@@ -1,7 +1,7 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 from sklearn.impute import SimpleImputer
 
@@ -42,8 +42,8 @@ scaler = StandardScaler()
 X_train = scaler.fit_transform(X_train)
 X_test = scaler.transform(X_test)
 
-# Créer le modèle Random Forest
-model = RandomForestClassifier(n_estimators=100, random_state=42)
+# Créer le modèle SVM
+model = SVC(kernel='linear', random_state=42)
 
 # Entraîner le modèle
 model.fit(X_train, y_train)

@@ -126,8 +126,8 @@ else:
     labels = np.empty(0)
 
 # Load new images and masks
-image_dir = 'train/images_1_to_250'
-mask_dir = 'train/masks_1_to_250'
+image_dir = 'train/images_250_to_347'
+mask_dir = 'train/masks_251_to_347'
 images, masks = load_images_and_masks(image_dir, mask_dir)
 
 # Check for the number of images and masks
@@ -144,7 +144,7 @@ else:
     print(f"Extracted features shape: {new_features.shape}")
 
 # Load labels
-new_labels = pd.read_excel('Machine learning/données.xlsx')['bug type'].values
+new_labels = pd.read_excel('Machine_learning/données.xlsx')['bug type'].values
 
 # Adjust the labels to match the filtered images and masks
 new_labels = new_labels[:len(new_features)]
