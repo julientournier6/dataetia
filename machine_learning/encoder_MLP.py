@@ -1,87 +1,62 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.neural_network import MLPClassifier
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
-from sklearn.impute import SimpleImputer
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Dense
 from tensorflow.keras.optimizers import Adam
 
-# Charger les données depuis le fichier Excel
+# Charger les données
 file_path = 'machine_learning/données.xlsx'
+print(f"Loading data from {file_path}")
 data = pd.read_excel(file_path)
 
-# Créer une nouvelle colonne 'bug_category' pour les quatre catégories
-def categorize_bug(bug_type):
-    if bug_type == 'Bee':
-        return 'Bee'
-    elif bug_type == 'Bumblebee':
-        return 'Bumblebee'
-    elif bug_type == 'Butterfly':
-        return 'Butterfly'
-    else:
-        return 'Others'
-
-data['bug_category'] = data['bug type'].apply(categorize_bug)
-
-# Afficher un aperçu des données
-print(data.head())
-print(data.dtypes)
-
-# Séparer les caractéristiques (features) et l'étiquette (target)
-X = data.drop(columns=['ID', 'bug type', 'species', 'bug_category'])  # Caractéristiques
-y = data['bug_category']  # Étiquette
-
-# Gérer les valeurs manquantes en utilisant SimpleImputer
-imputer = SimpleImputer(strategy='mean')
-X = imputer.fit_transform(X)
-
-# Standardiser les données
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
+# Préparer les caractéristiques et les labels
+X = data.drop(columns=['ID', 'bug type', 'species'])
+y = data['bug type']
 
 # Diviser les données en ensembles d'entraînement et de test
-X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+print("Splitting data into train and test sets")
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Créer un autoencoder
-input_dim = X_train.shape[1]
-encoding_dim = 10  # Dimension de l'espace latent
+# Standardiser les caractéristiques
+print("Standardizing the features")
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
 
+# Définir et entraîner l'autoencodeur
+input_dim = X_train_scaled.shape[1]
+encoding_dim = 10
+
+print("Building the autoencoder")
 input_layer = Input(shape=(input_dim,))
-encoder = Dense(encoding_dim, activation='relu')(input_layer)
-decoder = Dense(input_dim, activation='sigmoid')(encoder)
+encoded = Dense(encoding_dim, activation='relu')(input_layer)
+decoded = Dense(input_dim, activation='sigmoid')(encoded)
 
-autoencoder = Model(inputs=input_layer, outputs=decoder)
-autoencoder.compile(optimizer=Adam(learning_rate=0.001), loss='mse')
+autoencoder = Model(input_layer, decoded)
+encoder = Model(input_layer, encoded)
 
-# Entraîner l'autoencoder
-autoencoder.fit(X_train, X_train, epochs=50, batch_size=32, shuffle=True, validation_split=0.2)
+autoencoder.compile(optimizer=Adam(), loss='mean_squared_error')
 
-# Encoder les données d'entraînement et de test
-encoder_model = Model(inputs=input_layer, outputs=encoder)
-X_train_encoded = encoder_model.predict(X_train)
-X_test_encoded = encoder_model.predict(X_test)
+print("Training the autoencoder")
+autoencoder.fit(X_train_scaled, X_train_scaled, epochs=50, batch_size=32, shuffle=True, validation_data=(X_test_scaled, X_test_scaled))
 
-# Créer et entraîner un modèle MLP sur les caractéristiques encodées
-mlp = MLPClassifier(hidden_layer_sizes=(100,), max_iter=300, random_state=42)
+# Utiliser l'encodeur pour réduire la dimensionnalité des caractéristiques
+print("Transforming the features using the encoder")
+X_train_encoded = encoder.predict(X_train_scaled)
+X_test_encoded = encoder.predict(X_test_scaled)
+
+# Appliquer la régression logistique ou le MLP sur les caractéristiques encodées
+print("Training the MLP classifier on the encoded features")
+mlp = MLPClassifier(random_state=42)
 mlp.fit(X_train_encoded, y_train)
 
-# Prédire les étiquettes pour les données de test
+# Prédire les labels sur l'ensemble de test
+print("Predicting the test set")
 y_pred = mlp.predict(X_test_encoded)
 
-# Évaluer les performances du modèle
-conf_matrix = confusion_matrix(y_test, y_pred)
-class_report = classification_report(y_test, y_pred)
-accuracy = accuracy_score(y_test, y_pred)
-
-# Afficher les résultats
-print("Confusion Matrix:")
-print(conf_matrix)
-
-print("\nClassification Report:")
-print(class_report)
-
-# Afficher le score de précision en pourcentage
-print(f"\nAccuracy Score: {accuracy * 100:.2f}%")
+# Calculer et afficher la précision
+accuracy = np.mean(y_pred == y_test) * 100
+print(f"Accuracy: {accuracy:.2f}%")
