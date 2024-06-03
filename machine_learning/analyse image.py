@@ -123,8 +123,8 @@ with open('model.pkl', 'rb') as file:
     model, le = pickle.load(file)
 
 # Load and process new images and masks
-image_dir = 'train/images_1_to_250'
-mask_dir = 'train/masks_1_to_250'
+image_dir = 'train/images_250_to_347'
+mask_dir = 'train/masks_251_to_347'
 images, masks = load_images_and_masks(image_dir, mask_dir)
 
 # Extract features
@@ -138,30 +138,9 @@ features_scaled = scaler.fit_transform(features)
 predictions = model.predict(features_scaled)
 predicted_labels = le.inverse_transform(predictions)
 
-# Load actual insect types from données.xlsx for comparison
-actual_data = pd.read_excel('Machine learning/données.xlsx')
-actual_labels = actual_data['bug type'].values
-actual_image_ids = actual_data['ID'].astype(str).values
-
-# Map species to bee, bumblebee, or other
-mapped_actual_labels = np.array(['bee' if 'bee' in label.lower() else 'bumblebee' if 'bumblebee' in label.lower() else 'other' for label in actual_labels])
-
-# Initialize counters for accuracy calculation
-correct_predictions = 0
-total_predictions = len(predicted_labels)
-
-# Compare predictions with actual insect types
+# Print the predictions along with the corresponding image filenames
 for i, pred in enumerate(predicted_labels):
-    image_id = os.path.splitext(os.listdir(image_dir)[i])[0]
-    actual_index = np.where(actual_image_ids == image_id)[0]
-    if len(actual_index) > 0:
-        actual_label = mapped_actual_labels[actual_index[0]]
-        if actual_label == pred:
-            correct_predictions += 1
-        print(f"Image {i+1}: Actual insect type: {actual_label}, Predicted insect type: {pred}")
-    else:
-        print(f"Image {i+1}: Actual insect type: Not found, Predicted insect type: {pred}")
+    image_filename = os.listdir(image_dir)[i]
+    print(f"Image {i+1}: {image_filename}, Predicted insect type: {pred}")
 
-# Calculate and print the percentage of correct predictions
-accuracy_percentage = (correct_predictions / total_predictions) * 100
-print(f"Accuracy: {accuracy_percentage:.2f}%")
+print("Predictions completed.")
