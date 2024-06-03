@@ -8,8 +8,9 @@ from sklearn.decomposition import PCA
 data_train = pd.read_excel('machine_learning/données.xlsx')
 data_test = pd.read_excel('machine_learning/données2.xlsx')
 
-# Renommer les colonnes de data_train pour enlever les suffixes _x et _y
-data_train.columns = [col.split('_')[0].lower() if '_' in col else col.lower() for col in data_train.columns]
+# Standardiser les noms de colonnes en supprimant les suffixes _x et _y
+data_train.columns = [col.split('_')[0].lower() for col in data_train.columns]
+data_test.columns = [col.lower() for col in data_test.columns]
 
 # Supprimer les colonnes inutiles pour l'entraînement
 X_train = data_train.drop(columns=['id', 'bug type', 'species'])
@@ -19,10 +20,8 @@ y_train = data_train['bug type']
 print("Colonnes de data_test avant alignement :")
 print(data_test.columns)
 
-# Assurer que les colonnes de data_test sont en minuscules et correspondent à celles de X_train
-data_test.columns = [col.lower() for col in data_test.columns]
-columns_to_keep = [col for col in X_train.columns if col in data_test.columns]
-X_test = data_test[columns_to_keep]
+# Assurer que les colonnes de X_test correspondent à celles de X_train
+X_test = data_test[X_train.columns]
 
 # Normaliser les données
 scaler = StandardScaler()
