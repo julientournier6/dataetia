@@ -1,71 +1,60 @@
-import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import Input, Dense
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import accuracy_score
-from keras.layers import Input, Dense
-from keras.models import Model
-import logging
 
-logging.basicConfig(level=logging.DEBUG)
+# Charger les données
+data_train = pd.read_excel('machine_learning/données.xlsx')
+data_test = pd.read_excel('machine_learning/données2.xlsx')
 
-# Chemin relatif pour le fichier de données
-file_path = 'machine_learning/données.xlsx'
+# Supprimer les colonnes inutiles pour l'entraînement
+X_train = data_train.drop(columns=['ID', 'bug type', 'species'])
+y_train = data_train['bug type']
 
-# Charger les données depuis le fichier Excel
-logging.info("Loading data from Excel file")
-data = pd.read_excel(file_path)
+X_test = data_test.drop(columns=['ID'])
 
-# Afficher un aperçu des données
-logging.debug(f"Data head:\n{data.head()}")
-logging.debug(f"Data types:\n{data.dtypes}")
-
-# Séparer les caractéristiques (features) et les étiquettes (labels)
-X = data.drop(columns=['ID', 'bug type', 'species'])
-y = data['bug type']
-
-# Diviser les données en ensembles d'entraînement et de test
-logging.info("Splitting data into train and test sets")
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-# Standardiser les données
-logging.info("Standardizing the data")
+# Normaliser les données
 scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
-# Construire l'autoencoder
-logging.info("Building the autoencoder")
+# Construire l'auto-encodeur
 input_dim = X_train_scaled.shape[1]
-encoding_dim = 10
+encoding_dim = 32  # Vous pouvez ajuster cette valeur
 
 input_layer = Input(shape=(input_dim,))
-encoded = Dense(encoding_dim, activation='relu')(input_layer)
-decoded = Dense(input_dim, activation='sigmoid')(encoded)
+encoder = Dense(encoding_dim, activation='relu')(input_layer)
+decoder = Dense(input_dim, activation='sigmoid')(encoder)
 
-autoencoder = Model(input_layer, decoded)
-autoencoder.compile(optimizer='adam', loss='mean_squared_error')
+autoencoder = Model(inputs=input_layer, outputs=decoder)
+autoencoder.compile(optimizer='adam', loss='mse')
 
-# Entraîner l'autoencoder
-logging.info("Training the autoencoder")
-autoencoder.fit(X_train_scaled, X_train_scaled, epochs=50, batch_size=16, shuffle=True, validation_split=0.2)
+# Entraîner l'auto-encodeur
+autoencoder.fit(X_train_scaled, X_train_scaled, epochs=50, batch_size=32, shuffle=True, validation_split=0.2)
 
-# Encoder les caractéristiques
-logging.info("Encoding the features using the trained autoencoder")
-encoder = Model(input_layer, encoded)
-X_train_encoded = encoder.predict(X_train_scaled)
-X_test_encoded = encoder.predict(X_test_scaled)
+# Extraire les caractéristiques encodées
+encoder_model = Model(inputs=input_layer, outputs=encoder)
+X_train_encoded = encoder_model.predict(X_train_scaled)
+X_test_encoded = encoder_model.predict(X_test_scaled)
 
-# Entraîner un MLP sur les caractéristiques encodées
-logging.info("Training MLP on the encoded features")
-mlp = MLPClassifier(hidden_layer_sizes=(100,), max_iter=300, random_state=42)
+# Entraîner un modèle supervisé sur les caractéristiques encodées
+# Utiliser un MLP (Multi-layer Perceptron) pour cette tâche
+mlp = MLPClassifier(hidden_layer_sizes=(64, 32), max_iter=1000, random_state=42)
 mlp.fit(X_train_encoded, y_train)
 
-# Prédire et évaluer le modèle
-logging.info("Predicting and evaluating the model")
-y_pred = mlp.predict(X_test_encoded)
-accuracy = accuracy_score(y_test, y_pred)
-logging.info(f"Accuracy: {accuracy * 100:.2f}%")
+# Prédire les labels pour le nouveau dataset
+y_test_pred = mlp.predict(X_test_encoded)
 
-print(f"Accuracy: {accuracy * 100:.2f}%")
+# Ajouter les prédictions au DataFrame de test
+data_test['Predicted Bug Type'] = y_test_pred
+
+# Enregistrer les prédictions dans un fichier Excel
+data_test.to_excel('machine_learning/predicted_données2.xlsx', index=False)
+
+print("Prédictions enregistrées dans 'machine_learning/predicted_données2.xlsx'")
