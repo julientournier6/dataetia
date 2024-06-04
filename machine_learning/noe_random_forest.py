@@ -6,8 +6,8 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score
 
-# Charger les données
-data = pd.read_excel('train/classif_test_v2.xlsx')
+# Charger les données d'entraînement
+data_train = pd.read_excel('train/classif_test_v2.xlsx')
 
 # Mapper les bug types aux nouvelles catégories
 def map_bug_type(bug_type):
@@ -18,36 +18,41 @@ def map_bug_type(bug_type):
     else:
         return 'others'
 
-data['bug_category'] = data['bug type'].apply(map_bug_type)
+data_train['bug_category'] = data_train['bug type'].apply(map_bug_type)
 
-# Préparer les données
-features = data.drop(columns=['ID', 'bug type', 'species', 'bug_category'])
-labels = data['bug_category']
+# Préparer les données d'entraînement
+features_train = data_train.drop(columns=['ID', 'bug type', 'species', 'bug_category'])
+labels_train = data_train['bug_category']
 
 # Imputer les valeurs manquantes si nécessaire
 imputer = SimpleImputer(strategy='mean')
-features_imputed = imputer.fit_transform(features)
+features_train_imputed = imputer.fit_transform(features_train)
 
 # Standardiser les données si nécessaire
 scaler = StandardScaler()
-features_scaled = scaler.fit_transform(features_imputed)
+features_train_scaled = scaler.fit_transform(features_train_imputed)
 
 # Modèle Random Forest
 model = RandomForestClassifier(n_estimators=100, max_depth=None, random_state=42)
 
-# Validation croisée stratifiée
-skf = StratifiedKFold(n_splits=5)
-scores = []
+# Entraîner le modèle sur les données d'entraînement complètes
+model.fit(features_train_scaled, labels_train)
 
-for train_index, test_index in skf.split(features_scaled, labels):
-    X_train, X_test = features_scaled[train_index], features_scaled[test_index]
-    y_train, y_test = labels[train_index], labels[test_index]
-    
-    model.fit(X_train, y_train)
-    y_pred = model.predict(X_test)
-    scores.append(accuracy_score(y_test, y_pred))
+# Charger les nouvelles données
+data_test = pd.read_excel('données2_v2.xlsx')
 
-# Résultats
-print(f'Accuracy Scores: {scores}')
-print(f'Mean Accuracy: {np.mean(scores)}')
-print(f'Standard Deviation: {np.std(scores)}')
+# Préparer les données de test de la même manière que les données d'entraînement
+features_test = data_test.drop(columns=['ID'])
+features_test_imputed = imputer.transform(features_test)
+features_test_scaled = scaler.transform(features_test_imputed)
+
+# Prédire les catégories des nouvelles images
+predictions = model.predict(features_test_scaled)
+
+# Ajouter les prédictions au DataFrame des nouvelles données
+data_test['bug_category'] = predictions
+
+# Stocker les résultats dans un fichier Excel
+output_file = 'machine_learning/noe_result.xlsx'
+data_test.to_excel(output_file, index=False)
+print(f"Results saved to {output_file}")
