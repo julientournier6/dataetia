@@ -6,7 +6,7 @@ from sklearn.metrics import classification_report, confusion_matrix, accuracy_sc
 from sklearn.impute import SimpleImputer
 
 # Charger les données depuis le fichier Excel
-file_path = '../classif_test_v2.xlsx'
+file_path = 'classif_test_v2.xlsx'
 data = pd.read_excel(file_path)
 
 # Créer une nouvelle colonne 'bug_category' pour les quatre catégories
