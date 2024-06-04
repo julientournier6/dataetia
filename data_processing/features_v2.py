@@ -54,7 +54,7 @@ def calculate_color_statistics(image, mask):
     std_values = np.std(bug_pixels, axis=0)
     return min_values, max_values, mean_values, median_values, std_values
 
-# Feature 6 - Excentricité (allongement de l'insecte) / Dans Symmetry_index (le temps que ça charge)
+# Feature 6 - Excentricité (allongement de l'insecte)
 def calculate_eccentricity(mask):
     points = np.column_stack(np.where(mask > 0))
     if points.shape[0] >= 5:
@@ -73,11 +73,10 @@ def calculate_haralick_features(mask):
         mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
     glcm = graycomatrix(mask, distances=[1], angles=[0, np.pi/4, np.pi/2, 3*np.pi/4], symmetric=True, normed=True)
     
-    # Extraire les Haralick features
     features = []
     properties = ['contrast', 'dissimilarity', 'homogeneity', 'energy', 'correlation', 'ASM']
     for prop in properties:
-        for i in range(glcm.shape[2]):
+        for i in range(glcm.shape[3]):
             feature = graycoprops(glcm, prop=prop)[0, i]
             features.append(feature)
     
@@ -91,17 +90,14 @@ def calculate_shape_descriptors(mask):
         box = cv2.boxPoints(rect)
         box = np.int0(box)
         
-        # Calculate area and perimeter directly from the mask
         area = np.sum(mask > 0)
         perimeter = cv2.arcLength(box, True)
         
-        # Calculate circularity
         if perimeter != 0:
             circularity = 4 * np.pi * area / (perimeter ** 2)
         else:
             circularity = 0
         
-        # Calculate compactness
         if area != 0:
             compactness = perimeter ** 2 / area
         else:
@@ -127,83 +123,81 @@ def process_image(image_path, mask_path):
     haralick_features = calculate_haralick_features(mask)
     circularity, compactness = calculate_shape_descriptors(mask)
 
-    result = {
-        "min_red": min_values[2], "min_green": min_values[1], "min_blue": min_values[0],
-        "max_red": max_values[2], "max_green": max_values[1], "max_blue": max_values[0],
-        "mean_red": mean_values[2], "mean_green": mean_values[1], "mean_blue": mean_values[0],
-        "median_red": median_values[2], "median_green": median_values[1], "median_blue": median_values[0],
-        "std_red": std_values[2], "std_green": std_values[1], "std_blue": std_values[0],
-        "pixel_ratio": pixel_ratio, "symmetry_index": symmetry_index,
-        "orthogonal_ratio": orthogonal_ratio, "eccentricity": eccentricity,
-        "circularity": circularity, "compactness": compactness
+    return {
+        "ID": os.path.splitext(os.path.basename(image_path))[0],
+        "Min Red": min_values[2], "Min Green": min_values[1], "Min Blue": min_values[0],
+        "Max Red": max_values[2], "Max Green": max_values[1], "Max Blue": max_values[0],
+        "Mean Red": mean_values[2], "Mean Green": mean_values[1], "Mean Blue": mean_values[0],
+        "Median Red": median_values[2], "Median Green": median_values[1], "Median Blue": median_values[0],
+        "Std Dev Red": std_values[2], "Std Dev Green": std_values[1], "Std Dev Blue": std_values[0],
+        "Eccentricity": eccentricity, "Pixel Ratio": pixel_ratio, "Symmetry Index": symmetry_index,
+        "Orthogonal Ratio": orthogonal_ratio,
+        "Haralick Contrast": haralick_features[0], "Haralick Dissimilarity": haralick_features[1],
+        "Haralick Homogeneity": haralick_features[2], "Haralick Energy": haralick_features[3],
+        "Haralick Correlation": haralick_features[4], "Haralick ASM": haralick_features[5],
+        "Circularity": circularity, "Compactness": compactness
     }
-
-    for i, feature in enumerate(haralick_features):
-        result[f'haralick_{i+1}'] = feature
-
-    return result
 
 # Function to process all images in a given directory
 def process_directory(images_dir, masks_dir, output_file):
     results = []
-
+    
     for image_filename in os.listdir(images_dir):
         if image_filename.lower().endswith('.jpg'):
             image_id = os.path.splitext(image_filename)[0]
             image_path = os.path.join(images_dir, image_filename)
             mask_filename = f'binary_{image_id}.tif'
             mask_path = os.path.join(masks_dir, mask_filename)
-
+            
             print(f"Attempting to load image: {image_path}")
             if not os.path.exists(image_path):
                 print(f"Image file does not exist: {image_path}")
                 continue
-
+            
             image = cv2.imread(image_path, cv2.IMREAD_COLOR)
             if image is None:
                 print(f"Failed to load image: {image_path}")
                 continue
-
+            
             print(f"Attempting to load mask: {mask_path}")
             if not os.path.exists(mask_path):
                 print(f"Mask file does not exist: {mask_path}")
                 continue
-
+            
             mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
             if mask is None:
                 print(f"Failed to load mask: {mask_path}")
                 continue
-
+            
             print(f"Processing image: {image_filename}")
             stats = process_image(image_path, mask_path)
             if stats:
-                result = {"ID": image_id}
-                result.update(stats)
-                results.append(result)
+                results.append(stats)
             else:
                 print(f"Error processing image: {image_filename}")
 
-    columns = ['ID', 'Min Red', 'Min Green', 'Min Blue', 'Max Red', 'Max Green', 'Max Blue',
-               'Mean Red', 'Mean Green', 'Mean Blue', 'Median Red', 'Median Green', 'Median Blue',
-               'Std Dev Red', 'Std Dev Green', 'Std Dev Blue', 'Pixel Ratio',
-               'Symmetry Index', 'Orthogonal Ratio', 'Eccentricity',
-               'Circularity', 'Compactness'] + [f'haralick_{i+1}' for i in range(24)]
+    columns = [
+        'ID', 'Min Red', 'Min Green', 'Min Blue', 'Max Red', 'Max Green', 'Max Blue',
+        'Mean Red', 'Mean Green', 'Mean Blue', 'Median Red', 'Median Green', 'Median Blue',
+        'Std Dev Red', 'Std Dev Green', 'Std Dev Blue', 'Eccentricity', 'Pixel Ratio',
+        'Symmetry Index', 'Orthogonal Ratio', 'Haralick Contrast', 'Haralick Dissimilarity',
+        'Haralick Homogeneity', 'Haralick Energy', 'Haralick Correlation', 'Haralick ASM',
+        'Circularity', 'Compactness'
+    ]
 
     if results:
-        df_results = pd.DataFrame(results)
-        print(df_results.head())  # Afficher les premières lignes du DataFrame pour vérification
+        df = pd.DataFrame(results, columns=columns)
+        print(df.head())  # Afficher les premières lignes du DataFrame pour vérification
         
         # Sauvegarder les résultats dans un fichier Excel
-        df_results.to_excel(output_file, index=False)
+        df.to_excel(output_file, index=False)
         print(f"Results saved to {output_file}")
     else:
-        print("No results to save.")
+               print("No results to save.")
 
-# Définir les répertoires et les fichiers de sortie
-images_dir = 'train/images_250'
-# Définir les répertoires et les fichiers de sortie
-images_dir = 'train/images_250_to_347'
-masks_dir = 'train/masks_251_to_347'
+# Définir les répertoires et le fichier de sortie
+images_dir = 'train/images_1_to_250'
+masks_dir = 'train/masks_1_to_250'
 output_file = 'train/test_v2.xlsx'
 
 # Traiter les images et sauvegarder les résultats
