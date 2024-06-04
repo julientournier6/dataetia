@@ -1,5 +1,5 @@
 import pandas as pd
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_val_score, KFold
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
@@ -22,12 +22,18 @@ def categorize_bug(bug_type):
 
 data['bug_category'] = data['bug type'].apply(categorize_bug)
 
-# Afficher un aperçu des données
+# Vérifier et créer les colonnes manquantes
+cols_to_drop = ['id', 'bug type', 'species', 'bug_category']
+for col in cols_to_drop:
+    if col not in data.columns:
+        data[col] = 'missing'
+
+# Afficher un aperçu des données et les noms de colonnes
 print(data.head())
-print(data.dtypes)
+print(data.columns)
 
 # Séparer les caractéristiques (features) et l'étiquette (target)
-X = data.drop(columns=['ID', 'bug type', 'species', 'bug_category'])  # Caractéristiques
+X = data.drop(columns=cols_to_drop)  # Caractéristiques
 y = data['bug_category']  # Étiquette
 
 # Gérer les valeurs manquantes en utilisant SimpleImputer
@@ -42,10 +48,28 @@ scaler = StandardScaler()
 X_train = scaler.fit_transform(X_train)
 X_test = scaler.transform(X_test)
 
-# Créer le modèle Random Forest
-model = RandomForestClassifier(n_estimators=100, random_state=42)
+# Créer et configurer le modèle Random Forest avec des hyperparamètres optimisés
+model = RandomForestClassifier(
+    n_estimators=1000,  # Augmenter le nombre d'arbres
+    max_features='sqrt',  # Utiliser la racine carrée du nombre de caractéristiques
+    max_depth=10,  # Limiter la profondeur des arbres
+    min_samples_split=20,  # Augmenter le nombre minimum d'échantillons pour diviser un nœud
+    min_samples_leaf=5,  # Augmenter le nombre minimum d'échantillons dans un nœud terminal
+    bootstrap=True,  # Utiliser le bootstrap
+    random_state=42
+)
 
-# Entraîner le modèle
+# Fonction pour évaluer un modèle avec validation croisée
+def evaluate_model(model, X, y, cv_splits=5):
+    kf = KFold(n_splits=cv_splits, shuffle=True, random_state=42)
+    cv_scores = cross_val_score(model, X, y, cv=kf, scoring='accuracy')
+    return cv_scores.mean(), cv_scores.std()
+
+# Évaluer le modèle Random Forest avec validation croisée
+mean_rf, std_rf = evaluate_model(model, X_train, y_train)
+print("Random Forest Cross-Validation Accuracy: {:.2f}% (+/- {:.2f}%)".format(mean_rf * 100, std_rf * 100))
+
+# Entraîner le modèle avec les meilleurs paramètres
 model.fit(X_train, y_train)
 
 # Faire des prédictions sur l'ensemble de test
@@ -63,4 +87,38 @@ print(conf_matrix)
 print("\nClassification Report:")
 print(class_report)
 
-print(f"\nAccuracy Score: {accuracy * 100:.2f}%")
+print(f"\nRandom Forest Test Accuracy: {accuracy * 100:.2f}%")
+
+# Charger les nouvelles données depuis le fichier Excel
+new_data_path = 'données2_v2.xlsx'
+data_new = pd.read_excel(new_data_path, engine='openpyxl')  # Spécifier le moteur openpyxl
+
+# Vérifier et créer les colonnes manquantes dans les nouvelles données
+for col in cols_to_drop:
+    if col not in data_new.columns:
+        data_new[col] = 'missing'
+
+# Afficher un aperçu des nouvelles données
+print(data_new.head())
+print(data_new.columns)
+
+# Préparer les nouvelles données de la même manière que les données d'entraînement
+X_new = data_new.drop(columns=cols_to_drop)  # Caractéristiques
+
+# Gérer les valeurs manquantes dans les nouvelles données
+X_new = imputer.transform(X_new)
+
+# Standardiser les nouvelles données
+X_new = scaler.transform(X_new)
+
+# Faire des prédictions sur les nouvelles données
+new_predictions = model.predict(X_new)
+
+# Ajouter les prédictions aux nouvelles données
+data_new['predicted_bug_category'] = new_predictions
+
+# Enregistrer les résultats dans un nouveau fichier Excel
+output_path = 'machine_learning\Test_result_Annab.xlsx'
+data_new.to_excel(output_path, index=False)
+
+print(f"Predictions saved to {output_path}")
