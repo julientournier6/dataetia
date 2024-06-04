@@ -22,6 +22,9 @@ def categorize_bug(bug_type):
 
 data['bug_category'] = data['bug type'].apply(categorize_bug)
 
+# Vérifier et afficher les colonnes du DataFrame
+print(data.columns)
+
 # Vérifier et créer les colonnes manquantes
 cols_to_drop = ['id', 'bug type', 'species', 'bug_category']
 for col in cols_to_drop:
@@ -33,7 +36,8 @@ print(data.head())
 print(data.columns)
 
 # Séparer les caractéristiques (features) et l'étiquette (target)
-X = data.drop(columns=cols_to_drop)  # Caractéristiques
+existing_cols_to_drop = [col for col in cols_to_drop if col in data.columns]
+X = data.drop(columns=existing_cols_to_drop)  # Caractéristiques
 y = data['bug_category']  # Étiquette
 
 # Gérer les valeurs manquantes en utilisant SimpleImputer
@@ -93,17 +97,13 @@ print(f"\nRandom Forest Test Accuracy: {accuracy * 100:.2f}%")
 new_data_path = 'données2_v2.xlsx'
 data_new = pd.read_excel(new_data_path, engine='openpyxl')  # Spécifier le moteur openpyxl
 
-# Vérifier et créer les colonnes manquantes dans les nouvelles données
-for col in cols_to_drop:
-    if col not in data_new.columns:
-        data_new[col] = 'missing'
-
 # Afficher un aperçu des nouvelles données
 print(data_new.head())
 print(data_new.columns)
 
 # Préparer les nouvelles données de la même manière que les données d'entraînement
-X_new = data_new.drop(columns=cols_to_drop)  # Caractéristiques
+existing_cols_to_drop_new = [col for col in cols_to_drop if col in data_new.columns]
+X_new = data_new.drop(columns=existing_cols_to_drop_new, errors='ignore')  # Caractéristiques
 
 # Gérer les valeurs manquantes dans les nouvelles données
 X_new = imputer.transform(X_new)
@@ -117,8 +117,11 @@ new_predictions = model.predict(X_new)
 # Ajouter les prédictions aux nouvelles données
 data_new['predicted_bug_category'] = new_predictions
 
+# Supprimer les colonnes contenant 'missing'
+data_new = data_new.loc[:, (data_new != 'missing').any(axis=0)]
+
 # Enregistrer les résultats dans un nouveau fichier Excel
-output_path = 'machine_learning\Test_result_Annab.xlsx'
+output_path = 'machine_learning/Test_result_Annab.xlsx'
 data_new.to_excel(output_path, index=False)
 
 print(f"Predictions saved to {output_path}")
