@@ -1,114 +1,116 @@
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.impute import SimpleImputer
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import classification_report, accuracy_score
+from imblearn.over_sampling import SMOTE
 
-# Chemin du fichier
-file_path = 'classif_test_v2.xlsx'
+# Chemin des fichiers
+file_path_train = 'classif_test_v2.xlsx'
+file_path_new_data = 'données2_v2.xlsx'
+output_file_path = 'predictions.xlsx'
 
-# Charger les données depuis le fichier Excel
-data = pd.read_excel(file_path)
+# Charger les données d'entraînement depuis le fichier Excel
+data = pd.read_excel(file_path_train)
 
-# Préparer les données
-X = data.drop(columns=['ID', 'bug type'])
-y = data['bug type']
+# Réduire les catégories à "Bee", "Bumblebee" et "other"
+data['bug type'] = data['bug type'].apply(lambda x: x if x in ['Bee', 'Bumblebee'] else 'other')
+
+# Afficher les valeurs uniques de "bug type" avant transformation
+print("Valeurs uniques de 'bug type' avant transformation :")
+print(data['bug type'].value_counts())
+
+# Préparer les données d'entraînement
+X_train = data.drop(columns=['ID', 'bug type'])
+y_train = data['bug type']
 
 # Convertir les étiquettes cibles en valeurs numériques
 label_encoder = LabelEncoder()
-y_encoded = label_encoder.fit_transform(y)
+y_train_encoded = label_encoder.fit_transform(y_train)
 
 # Sélectionner uniquement les colonnes numériques
-X = X.select_dtypes(include=[float, int])
+X_train = X_train.select_dtypes(include=[float, int])
 
 # Imputer les valeurs manquantes avec la moyenne
 imputer = SimpleImputer(strategy='mean')
-X_imputed = imputer.fit_transform(X)
+X_train_imputed = imputer.fit_transform(X_train)
 
-# Diviser les données en ensembles d'entraînement et de test
-X_train, X_test, y_train, y_test = train_test_split(X_imputed, y_encoded, test_size=0.2, random_state=42)
-
-# Normaliser les données
+# Normaliser les données d'entraînement
 scaler = StandardScaler()
-X_train_scaled = scaler.fit_transform(X_train)
+X_train_scaled = scaler.fit_transform(X_train_imputed)
+
+# Appliquer SMOTE pour équilibrer les classes
+smote = SMOTE(random_state=42)
+X_train_resampled, y_train_resampled = smote.fit_resample(X_train_scaled, y_train_encoded)
+
+# Définir les meilleurs hyperparamètres trouvés précédemment
+best_params = {
+    'hidden_layer_sizes': (50,),
+    'activation': 'relu',
+    'solver': 'sgd',
+    'alpha': 0.0001,
+    'learning_rate': 'constant',
+    'learning_rate_init': 0.0045,
+    'max_iter': 1500
+}
+
+# Initialiser et entraîner le modèle MLPClassifier avec les meilleurs paramètres
+best_mlp = MLPClassifier(**best_params, random_state=42)
+best_mlp.fit(X_train_resampled, y_train_resampled)
+
+# Évaluer le modèle avec les données de test
+X_train, X_test, y_train, y_test = train_test_split(X_train_imputed, y_train_encoded, test_size=0.2, random_state=42)
 X_test_scaled = scaler.transform(X_test)
+y_pred = best_mlp.predict(X_test_scaled)
+report = classification_report(y_test, y_pred)
+accuracy = accuracy_score(y_test, y_pred)
 
-# Définir les ensembles de meilleurs paramètres à tester
-params_list = [
-    {
-        'hidden_layer_sizes': (50,),
-        'activation': 'relu',
-        'solver': 'sgd',
-        'alpha': 3e-05,
-        'learning_rate': 'constant',
-        'learning_rate_init': 0.0045,
-        'max_iter': 1500
-    },
-    {
-        'hidden_layer_sizes': (50,),
-        'activation': 'relu',
-        'solver': 'sgd',
-        'alpha': 3.5e-05,
-        'learning_rate': 'constant',
-        'learning_rate_init': 0.004,
-        'max_iter': 1500
-    },
-    {
-        'hidden_layer_sizes': (50,),
-        'activation': 'relu',
-        'solver': 'sgd',
-        'alpha': 0.0001,
-        'learning_rate': 'constant',
-        'learning_rate_init': 0.0045,
-        'max_iter': 1500
-    }
-]
+print("Classification Report on Test Data:")
+print(report)
+print(f"Test Accuracy: {accuracy * 100:.2f}%")
 
-# Stocker les résultats
-results = []
+# Prédire les "bug type" pour l'ensemble des données d'entraînement
+y_train_pred = best_mlp.predict(X_train_scaled)
+y_train_pred_labels = label_encoder.inverse_transform(y_train_pred)
 
-# Tester chaque ensemble de paramètres
-for params in params_list:
-    # Initialiser le modèle MLPClassifier avec les paramètres actuels
-    mlp = MLPClassifier(**params, random_state=42)
-    
-    # Validation croisée
-    cv_scores = cross_val_score(mlp, X_train_scaled, y_train, cv=5)
-    mean_cv_score = np.mean(cv_scores)
-    std_cv_score = np.std(cv_scores)
-    
-    # Entraîner le modèle
-    mlp.fit(X_train_scaled, y_train)
-    
-    # Prédictions
-    y_pred = mlp.predict(X_test_scaled)
-    
-    # Précision sur l'ensemble de test
-    test_accuracy = accuracy_score(y_test, y_pred)
-    
-    # Stocker les résultats
-    results.append({
-        'params': params,
-        'cv_mean_accuracy': mean_cv_score,
-        'cv_std_accuracy': std_cv_score,
-        'test_accuracy': test_accuracy,
-        'classification_report': classification_report(y_test, y_pred, output_dict=True)
-    })
+# Ajouter les prédictions au DataFrame original
+data['predicted_bug_type'] = y_train_pred_labels
 
-# Afficher les résultats pour chaque ensemble de paramètres
-for result in results:
-    print(f"Parameters: {result['params']}")
-    print(f"Cross-validation accuracy: {result['cv_mean_accuracy'] * 100:.2f}% (+/- {result['cv_std_accuracy'] * 100:.2f}%)")
-    print(f"Test accuracy: {result['test_accuracy'] * 100:.2f}%")
-    print("Classification report:")
-    report_df = pd.DataFrame(result['classification_report']).transpose()
-    print(report_df)
-    print("\n" + "="*80 + "\n")
+# Compter le nombre de chaque catégorie prédite dans l'ensemble d'entraînement
+train_prediction_counts = data['predicted_bug_type'].value_counts()
+print("Training Predictions counts:")
+print(train_prediction_counts)
 
-# Comparer les résultats
-best_result = max(results, key=lambda x: x['test_accuracy'])
-print(f"Best parameters: {best_result['params']}")
-print(f"Best cross-validation accuracy: {best_result['cv_mean_accuracy'] * 100:.2f}% (+/- {best_result['cv_std_accuracy'] * 100:.2f}%)")
-print(f"Best test accuracy: {best_result['test_accuracy'] * 100:.2f}%")
+# Charger le nouveau jeu de données
+new_data = pd.read_excel(file_path_new_data)
+
+# Préparer les données (supposant que la structure est similaire à l'ancien fichier)
+X_new = new_data.drop(columns=['ID'])
+
+# Sélectionner uniquement les colonnes numériques
+X_new = X_new.select_dtypes(include=[float, int])
+
+# Imputer et normaliser les données du nouveau jeu de données
+X_new_imputed = imputer.transform(X_new)
+X_new_scaled = scaler.transform(X_new_imputed)
+
+# Appliquer le modèle sur le nouveau jeu de données pour prédire les "bug type" de manière indépendante
+y_new_pred = best_mlp.predict(X_new_scaled)
+
+# Convertir les étiquettes prédictes en leurs noms originaux
+y_new_pred_labels = label_encoder.inverse_transform(y_new_pred)
+
+# Ajouter les prédictions au DataFrame original
+new_data['predicted_bug_type'] = y_new_pred_labels
+
+# Compter le nombre de chaque catégorie prédite dans le nouveau jeu de données
+prediction_counts = new_data['predicted_bug_type'].value_counts()
+print("Predictions counts:")
+print(prediction_counts)
+
+# Enregistrer les résultats dans un nouveau fichier Excel
+new_data.to_excel(output_file_path, index=False)
+
+print(f"Predicted 'bug type' saved to {output_file_path}")
