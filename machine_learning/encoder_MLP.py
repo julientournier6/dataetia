@@ -64,8 +64,8 @@ mean_lr, std_lr = evaluate_model(logistic_regression, X_encoded, y)
 print("Logistic Regression Cross-Validation Accuracy: {:.2f}% (+/- {:.2f}%)".format(mean_lr * 100, std_lr * 100))
 
 # Choix 2: Perceptron Multicouche (MLP) avec optimisations
-mlp = MLPClassifier(hidden_layer_sizes=(200, 100), max_iter=1500, alpha=0.001,
-                    solver='adam', random_state=42, learning_rate_init=0.0001)
+mlp = MLPClassifier(hidden_layer_sizes=(200, 100), max_iter=2000, alpha=0.0001,
+                    solver='adam', random_state=42, learning_rate_init=0.001)
 mean_mlp, std_mlp = evaluate_model(mlp, X_encoded, y)
 print("MLP Cross-Validation Accuracy: {:.2f}% (+/- {:.2f}%)".format(mean_mlp * 100, std_mlp * 100))
 
