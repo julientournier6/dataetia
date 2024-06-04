@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
@@ -13,6 +13,7 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.utils import to_categorical
+import numpy as np
 
 # Chemin du fichier
 file_path = 'classif_test_v2.xlsx'
@@ -60,79 +61,46 @@ scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
-# Régression logistique avec GridSearchCV
+# Fonction pour évaluer les modèles avec cross-validation et afficher les rapports de classification
+def evaluate_model(model, X_train, y_train, X_test, y_test):
+    # Validation croisée
+    cv_scores = cross_val_score(model, X_train, y_train, cv=5)
+    mean_cv_score = np.mean(cv_scores)
+    std_cv_score = np.std(cv_scores)
+    
+    # Entraîner le modèle
+    model.fit(X_train, y_train)
+    
+    # Prédictions
+    y_pred = model.predict(X_test)
+    
+    # Rapport de classification
+    report = classification_report(y_test, y_pred, output_dict=True)
+    accuracy = accuracy_score(y_test, y_pred)
+    
+    return report, accuracy, mean_cv_score, std_cv_score
+
+# Entraîner et évaluer les modèles
+
+# Régression logistique
 log_reg = LogisticRegression(max_iter=200)
-param_grid_log_reg = {
-    'C': [0.01, 0.1, 1, 10, 100],
-    'solver': ['liblinear', 'lbfgs', 'newton-cg', 'sag', 'saga'],
-    'penalty': ['l2', 'none']
-}
-grid_log_reg = GridSearchCV(log_reg, param_grid_log_reg, cv=5, scoring='accuracy', n_jobs=-1)
-grid_log_reg.fit(X_train_scaled, y_train)
+log_reg_report, log_reg_accuracy, log_reg_mean_cv, log_reg_std_cv = evaluate_model(log_reg, X_train_scaled, y_train, X_test_scaled, y_test)
 
-# Meilleurs paramètres trouvés par GridSearchCV
-best_params_log_reg = grid_log_reg.best_params_
-print(f"Best parameters for Logistic Regression: {best_params_log_reg}")
+# K-Nearest Neighbors
+knn = KNeighborsClassifier(n_neighbors=5)
+knn_report, knn_accuracy, knn_mean_cv, knn_std_cv = evaluate_model(knn, X_train_scaled, y_train, X_test_scaled, y_test)
 
-# Prédictions et rapport de classification avec les meilleurs paramètres
-y_pred_log_reg = grid_log_reg.predict(X_test_scaled)
-log_reg_report = classification_report(y_test, y_pred_log_reg, output_dict=True)
-log_reg_accuracy = accuracy_score(y_test, y_pred_log_reg)
+# SVM
+svm = SVC(C=1, gamma=0.1, kernel='rbf')
+svm_report, svm_accuracy, svm_mean_cv, svm_std_cv = evaluate_model(svm, X_train_scaled, y_train, X_test_scaled, y_test)
 
-# K-Nearest Neighbors avec GridSearchCV
-knn = KNeighborsClassifier()
-param_grid_knn = {'n_neighbors': [3, 5, 7, 9], 'weights': ['uniform', 'distance']}
-grid_knn = GridSearchCV(knn, param_grid_knn, cv=5, scoring='accuracy', n_jobs=-1)
-grid_knn.fit(X_train_scaled, y_train)
+# Random Forest
+rf = RandomForestClassifier(n_estimators=100, max_depth=None)
+rf_report, rf_accuracy, rf_mean_cv, rf_std_cv = evaluate_model(rf, X_train_scaled, y_train, X_test_scaled, y_test)
 
-# Meilleurs paramètres trouvés par GridSearchCV
-best_params_knn = grid_knn.best_params_
-print(f"Best parameters for KNN: {best_params_knn}")
-
-# Prédictions et rapport de classification avec les meilleurs paramètres
-y_pred_knn = grid_knn.predict(X_test_scaled)
-knn_report = classification_report(y_test, y_pred_knn, output_dict=True)
-knn_accuracy = accuracy_score(y_test, y_pred_knn)
-
-# SVM avec GridSearchCV
-svm = SVC()
-param_grid_svm = {'C': [0.1, 1, 10, 100], 'gamma': [1, 0.1, 0.01, 0.001], 'kernel': ['linear', 'rbf']}
-grid_svm = GridSearchCV(svm, param_grid_svm, cv=5)
-grid_svm.fit(X_train_scaled, y_train)
-y_pred_svm = grid_svm.predict(X_test_scaled)
-svm_report = classification_report(y_test, y_pred_svm, output_dict=True)
-svm_accuracy = accuracy_score(y_test, y_pred_svm)
-
-# Random Forest avec GridSearchCV
-rf = RandomForestClassifier()
-param_grid_rf = {'n_estimators': [50, 100, 200], 'max_depth': [None, 10, 20, 30], 'min_samples_split': [2, 5, 10]}
-grid_rf = GridSearchCV(rf, param_grid_rf, cv=5)
-grid_rf.fit(X_train_scaled, y_train)
-y_pred_rf = grid_rf.predict(X_test_scaled)
-rf_report = classification_report(y_test, y_pred_rf, output_dict=True)
-rf_accuracy = accuracy_score(y_test, y_pred_rf)
-
-# MLPClassifier avec GridSearchCV
-mlp = MLPClassifier(max_iter=500)
-param_grid_mlp = {
-    'hidden_layer_sizes': [(50, 50), (100,)],
-    'activation': ['tanh', 'relu'],
-    'solver': ['sgd', 'adam'],
-    'alpha': [0.0001, 0.05],
-    'learning_rate': ['constant', 'adaptive'],
-    'learning_rate_init': [0.001, 0.01, 0.1]
-}
-grid_mlp = GridSearchCV(mlp, param_grid_mlp, cv=5, scoring='accuracy', n_jobs=-1)
-grid_mlp.fit(X_train_scaled, y_train)
-
-# Meilleurs paramètres trouvés par GridSearchCV
-best_params_mlp = grid_mlp.best_params_
-print(f"Best parameters for MLP: {best_params_mlp}")
-
-# Prédictions et rapport de classification avec les meilleurs paramètres
-y_pred_mlp = grid_mlp.predict(X_test_scaled)
-mlp_report = classification_report(y_test, y_pred_mlp, output_dict=True)
-mlp_accuracy = accuracy_score(y_test, y_pred_mlp)
+# MLPClassifier
+mlp = MLPClassifier(hidden_layer_sizes=(100,), activation='relu', solver='adam', max_iter=500)
+mlp_report, mlp_accuracy, mlp_mean_cv, mlp_std_cv = evaluate_model(mlp, X_train_scaled, y_train, X_test_scaled, y_test)
 
 # Réseau de neurones avec Dropout et ajustement des paramètres
 nn_model = Sequential([
@@ -163,7 +131,15 @@ results_file_path = 'Machine_learning/apprentissage.xlsx'
 # Ajouter les scores d'accuracy à results_df
 accuracy_data = {
     'Model': ['Logistic Regression', 'KNN', 'SVM', 'Random Forest', 'MLP', 'Neural Network'],
-    'Accuracy': [log_reg_accuracy, knn_accuracy, svm_accuracy, rf_accuracy, mlp_accuracy, nn_accuracy]
+    'Test Accuracy': [log_reg_accuracy, knn_accuracy, svm_accuracy, rf_accuracy, mlp_accuracy, nn_accuracy],
+    'Cross-Validation Accuracy': [
+        f"{log_reg_mean_cv * 100:.2f}% (+/- {log_reg_std_cv * 100:.2f}%)",
+        f"{knn_mean_cv * 100:.2f}% (+/- {knn_std_cv * 100:.2f}%)",
+        f"{svm_mean_cv * 100:.2f}% (+/- {svm_std_cv * 100:.2f}%)",
+        f"{rf_mean_cv * 100:.2f}% (+/- {rf_std_cv * 100:.2f}%)",
+        f"{mlp_mean_cv * 100:.2f}% (+/- {mlp_std_cv * 100:.2f}%)",
+        "N/A"  # Cross-validation for Neural Network is not done
+    ]
 }
 accuracy_df = pd.DataFrame(accuracy_data)
 accuracy_df.set_index('Model', inplace=True)
@@ -176,9 +152,6 @@ with pd.ExcelWriter(results_file_path) as writer:
 print(f"Results saved to {results_file_path}")
 
 # Afficher les résultats de l'accuracy pour chaque modèle
-print(f"Logistic Regression Accuracy: {log_reg_accuracy * 100:.2f}%")
-print(f"KNN Accuracy: {knn_accuracy * 100:.2f}%")
-print(f"SVM Accuracy: {svm_accuracy * 100:.2f}%")
-print(f"Random Forest Accuracy: {rf_accuracy * 100:.2f}%")
-print(f"MLP Accuracy: {mlp_accuracy * 100:.2f}%")
-print(f"Neural Network Accuracy: {nn_accuracy * 100:.2f}%")
+for model, acc, cv_acc in zip(accuracy_data['Model'], accuracy_data['Test Accuracy'], accuracy_data['Cross-Validation Accuracy']):
+    print(f"{model} Cross-Validation Accuracy: {cv_acc}")
+    print(f"{model} Test Accuracy: {acc * 100:.2f}%\n")
