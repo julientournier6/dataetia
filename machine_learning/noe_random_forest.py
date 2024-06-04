@@ -1,10 +1,9 @@
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import cross_val_score
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import accuracy_score
 
 # Charger les données d'entraînement
 data_train = pd.read_excel('train/classif_test_v2.xlsx')
@@ -35,6 +34,11 @@ features_train_scaled = scaler.fit_transform(features_train_imputed)
 # Modèle Random Forest
 model = RandomForestClassifier(n_estimators=100, max_depth=None, random_state=42)
 
+# Validation croisée pour évaluer l'accuracy
+scores = cross_val_score(model, features_train_scaled, labels_train, cv=5, scoring='accuracy')
+mean_accuracy = scores.mean() * 100
+print(f"Mean Accuracy: {mean_accuracy:.2f}%")
+
 # Entraîner le modèle sur les données d'entraînement complètes
 model.fit(features_train_scaled, labels_train)
 
@@ -52,7 +56,10 @@ predictions = model.predict(features_test_scaled)
 # Ajouter les prédictions au DataFrame des nouvelles données
 data_test['bug_category'] = predictions
 
+# Garder uniquement les colonnes ID et bug_category
+result = data_test[['ID', 'bug_category']]
+
 # Stocker les résultats dans un fichier Excel
-output_file = 'machine_learning/noe_result.xlsx'
-data_test.to_excel(output_file, index=False)
+output_file = 'machine_learning/noe_result_v2.xlsx'
+result.to_excel(output_file, index=False)
 print(f"Results saved to {output_file}")
