@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import pandas as pd
 import os
+from skimage.feature import graycomatrix, graycoprops
 
 # Feature 1 - Symmetry Index
 def calculate_symmetry_index(image):
@@ -53,15 +54,62 @@ def calculate_color_statistics(image, mask):
     std_values = np.std(bug_pixels, axis=0)
     return min_values, max_values, mean_values, median_values, std_values
 
-# Feature 6 - Additional features
-def calculate_additional_features(mask):
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    if contours:
-        contour = contours[0]
-        perimeter = cv2.arcLength(contour, True)
-        area = cv2.contourArea(contour)
-        return perimeter, area
-    return 0, 0
+# Feature 6 - Excentricité (allongement de l'insecte) / Dans Symmetry_index (le temps que ça charge)
+def calculate_eccentricity(mask):
+    points = np.column_stack(np.where(mask > 0))
+    if points.shape[0] >= 5:
+        rect = cv2.minAreaRect(points)
+        (center, axes, orientation) = rect
+        major_axis_length = max(axes)
+        minor_axis_length = min(axes)
+        if major_axis_length != 0:
+            eccentricity = np.sqrt(1 - (minor_axis_length**2 / major_axis_length**2))
+            return eccentricity
+    return 0
+
+# Feature 7 - Texture
+def calculate_haralick_features(mask):
+    if len(mask.shape) == 3:
+        mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+    glcm = graycomatrix(mask, distances=[1], angles=[0, np.pi/4, np.pi/2, 3*np.pi/4], symmetric=True, normed=True)
+    
+    # Extraire les Haralick features
+    features = []
+    properties = ['contrast', 'dissimilarity', 'homogeneity', 'energy', 'correlation', 'ASM']
+    for prop in properties:
+        for i in range(glcm.shape[2]):
+            feature = graycoprops(glcm, prop=prop)[0, i]
+            features.append(feature)
+    
+    return features
+
+# Feature 8 - Shape Descriptors
+def calculate_shape_descriptors(mask):
+    points = np.column_stack(np.where(mask > 0))
+    if points.shape[0] >= 5:
+        rect = cv2.minAreaRect(points)
+        box = cv2.boxPoints(rect)
+        box = np.int0(box)
+        
+        # Calculate area and perimeter directly from the mask
+        area = np.sum(mask > 0)
+        perimeter = cv2.arcLength(box, True)
+        
+        # Calculate circularity
+        if perimeter != 0:
+            circularity = 4 * np.pi * area / (perimeter ** 2)
+        else:
+            circularity = 0
+        
+        # Calculate compactness
+        if area != 0:
+            compactness = perimeter ** 2 / area
+        else:
+            compactness = 0
+        
+        return circularity, compactness
+    else:
+        return 0, 0
 
 # Function to process a single image and mask
 def process_image(image_path, mask_path):
@@ -72,20 +120,28 @@ def process_image(image_path, mask_path):
         return None
 
     min_values, max_values, mean_values, median_values, std_values = calculate_color_statistics(image, mask)
-    perimeter, area = calculate_additional_features(mask)
     pixel_ratio = calculate_bug_pixel_ratio(mask)
     symmetry_index = calculate_symmetry_index(image)
     orthogonal_ratio = calculate_orthogonal_ratio(mask)
+    eccentricity = calculate_eccentricity(mask)
+    haralick_features = calculate_haralick_features(mask)
+    circularity, compactness = calculate_shape_descriptors(mask)
 
-    return {
+    result = {
         "min_red": min_values[2], "min_green": min_values[1], "min_blue": min_values[0],
         "max_red": max_values[2], "max_green": max_values[1], "max_blue": max_values[0],
         "mean_red": mean_values[2], "mean_green": mean_values[1], "mean_blue": mean_values[0],
         "median_red": median_values[2], "median_green": median_values[1], "median_blue": median_values[0],
         "std_red": std_values[2], "std_green": std_values[1], "std_blue": std_values[0],
-        "perimeter": perimeter, "area": area, "pixel_ratio": pixel_ratio, "symmetry_index": symmetry_index,
-        "orthogonal_ratio": orthogonal_ratio
+        "pixel_ratio": pixel_ratio, "symmetry_index": symmetry_index,
+        "orthogonal_ratio": orthogonal_ratio, "eccentricity": eccentricity,
+        "circularity": circularity, "compactness": compactness
     }
+
+    for i, feature in enumerate(haralick_features):
+        result[f'haralick_{i+1}'] = feature
+
+    return result
 
 # Function to process all images in a given directory
 def process_directory(images_dir, masks_dir, output_file):
@@ -129,8 +185,9 @@ def process_directory(images_dir, masks_dir, output_file):
 
     columns = ['ID', 'Min Red', 'Min Green', 'Min Blue', 'Max Red', 'Max Green', 'Max Blue',
                'Mean Red', 'Mean Green', 'Mean Blue', 'Median Red', 'Median Green', 'Median Blue',
-               'Std Dev Red', 'Std Dev Green', 'Std Dev Blue', 'Perimeter', 'Area', 'Pixel Ratio',
-               'Symmetry Index', 'Orthogonal Ratio']
+               'Std Dev Red', 'Std Dev Green', 'Std Dev Blue', 'Pixel Ratio',
+               'Symmetry Index', 'Orthogonal Ratio', 'Eccentricity',
+               'Circularity', 'Compactness'] + [f'haralick_{i+1}' for i in range(24)]
 
     if results:
         df_results = pd.DataFrame(results)
@@ -143,9 +200,11 @@ def process_directory(images_dir, masks_dir, output_file):
         print("No results to save.")
 
 # Définir les répertoires et les fichiers de sortie
+images_dir = 'train/images_250'
+# Définir les répertoires et les fichiers de sortie
 images_dir = 'train/images_250_to_347'
 masks_dir = 'train/masks_251_to_347'
-output_file = 'train/classif_v2.xlsx'
+output_file = 'train/test_v2.xlsx'
 
 # Traiter les images et sauvegarder les résultats
 process_directory(images_dir, masks_dir, output_file)
