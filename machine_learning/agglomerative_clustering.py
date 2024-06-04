@@ -5,7 +5,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.decomposition import PCA
 
 # Charger les données
-data_train = pd.read_excel('machine_learning/données.xlsx')
+data_train = pd.read_excel('../classif_test_v2.xlsx')
 data_test = pd.read_excel('machine_learning/données2.xlsx')
 
 # Standardiser les noms de colonnes en supprimant les suffixes _x et _y

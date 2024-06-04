@@ -4,7 +4,7 @@ from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics import silhouette_score
 
 # Charger les données depuis le fichier Excel
-data_path = 'machine_learning/données.xlsx'
+data_path = '../classif_test_v2.xlsx'
 data = pd.read_excel(data_path)
 
 # Sélectionner les caractéristiques pour le clustering
