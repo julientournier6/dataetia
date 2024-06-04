@@ -196,8 +196,8 @@ def process_directory(images_dir, masks_dir, output_file):
                print("No results to save.")
 
 # Définir les répertoires et le fichier de sortie
-images_dir = 'train/images_1_to_250'
-masks_dir = 'train/masks_1_to_250'
+images_dir = 'train/images_250_to_347'
+masks_dir = 'train/masks_251_to_347'
 output_file = 'train/test_v2.xlsx'
 
 # Traiter les images et sauvegarder les résultats
