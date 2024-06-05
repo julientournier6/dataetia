@@ -5,6 +5,7 @@ from sklearn.svm import SVC
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, recall_score, classification_report
+from imblearn.over_sampling import SMOTE
 
 # Charger les données d'entraînement
 data_train = pd.read_excel('train/classif_test_v2.xlsx')
@@ -32,20 +33,23 @@ features_train_imputed = imputer.fit_transform(features_train)
 scaler = StandardScaler()
 features_train_scaled = scaler.fit_transform(features_train_imputed)
 
+# Rééchantillonnage avec SMOTE
+smote = SMOTE(random_state=42)
+features_train_resampled, labels_train_resampled = smote.fit_resample(features_train_scaled, labels_train)
+
 # Définir les hyperparamètres à tester pour le SVM
 param_grid = {
     'C': [0.1, 1, 10, 100, 1000],
     'gamma': [1, 0.1, 0.01, 0.001, 0.0001],
-    'kernel': ['rbf', 'poly', 'sigmoid'],
-    'class_weight': ['balanced', None]
+    'kernel': ['rbf', 'poly', 'sigmoid']
 }
 
 # Modèle SVM
 svm = SVC()
 
 # Grid Search avec validation croisée
-grid_search = GridSearchCV(estimator=svm, param_grid=param_grid, cv=10, scoring='accuracy', n_jobs=-1, verbose=2)
-grid_search.fit(features_train_scaled, labels_train)
+grid_search = GridSearchCV(estimator=svm, param_grid=param_grid, cv=5, scoring='accuracy', n_jobs=-1, verbose=2)
+grid_search.fit(features_train_resampled, labels_train_resampled)
 
 # Afficher les meilleurs hyperparamètres
 print(f"Best hyperparameters: {grid_search.best_params_}")
