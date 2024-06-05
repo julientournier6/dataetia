@@ -34,10 +34,10 @@ features_train_scaled = scaler.fit_transform(features_train_imputed)
 
 # Définir les hyperparamètres à tester
 param_grid = {
-    'n_estimators': [100, 200, 300],
-    'max_depth': [None, 10, 20, 30],
-    'min_samples_split': [2, 5, 10],
-    'min_samples_leaf': [1, 2, 4],
+    'n_estimators': [100, 200, 300, 400, 500],
+    'max_depth': [None, 10, 20, 30, 40, 50],
+    'min_samples_split': [2, 5, 10, 15],
+    'min_samples_leaf': [1, 2, 4, 6],
     'bootstrap': [True, False]
 }
 
@@ -45,7 +45,7 @@ param_grid = {
 rf = RandomForestClassifier(random_state=42)
 
 # Grid Search avec validation croisée
-grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, cv=5, scoring='accuracy', n_jobs=-1, verbose=2)
+grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, cv=10, scoring='accuracy', n_jobs=-1, verbose=2)
 grid_search.fit(features_train_scaled, labels_train)
 
 # Afficher les meilleurs hyperparamètres
