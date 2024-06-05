@@ -1,9 +1,10 @@
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score, recall_score, classification_report
 
 # Charger les données d'entraînement
 data_train = pd.read_excel('train/classif_test_v2.xlsx')
@@ -74,3 +75,16 @@ result = data_test[['ID', 'bug_category']]
 output_file = 'machine_learning/noe_result.xlsx'
 result.to_excel(output_file, index=False)
 print(f"Results saved to {output_file}")
+
+# Évaluer le modèle sur les données d'entraînement avec cross-validation pour obtenir accuracy et recall
+X_train, X_val, y_train, y_val = train_test_split(features_train_scaled, labels_train, test_size=0.2, random_state=42)
+best_rf.fit(X_train, y_train)
+y_pred_val = best_rf.predict(X_val)
+
+accuracy = accuracy_score(y_val, y_pred_val)
+recall = recall_score(y_val, y_pred_val, average='weighted')
+
+print(f"Accuracy: {accuracy:.2%}")
+print(f"Recall: {recall:.2%}")
+print("\nClassification Report:")
+print(classification_report(y_val, y_pred_val))
