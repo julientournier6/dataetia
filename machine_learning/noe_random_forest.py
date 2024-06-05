@@ -5,6 +5,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, recall_score, classification_report
+from sklearn.utils.class_weight import compute_class_weight
 
 # Charger les données d'entraînement
 data_train = pd.read_excel('train/classif_test_v2.xlsx')
@@ -32,6 +33,10 @@ features_train_imputed = imputer.fit_transform(features_train)
 scaler = StandardScaler()
 features_train_scaled = scaler.fit_transform(features_train_imputed)
 
+# Calculer les poids de classe
+class_weights = compute_class_weight('balanced', classes=np.unique(labels_train), y=labels_train)
+class_weights_dict = {class_label: weight for class_label, weight in zip(np.unique(labels_train), class_weights)}
+
 # Définir les hyperparamètres à tester
 param_grid = {
     'n_estimators': [100, 200, 300],
@@ -42,7 +47,7 @@ param_grid = {
 }
 
 # Modèle Random Forest
-rf = RandomForestClassifier(random_state=42)
+rf = RandomForestClassifier(random_state=42, class_weight=class_weights_dict)
 
 # Grid Search avec validation croisée
 grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, cv=5, scoring='accuracy', n_jobs=-1, verbose=2)
@@ -88,3 +93,11 @@ print(f"Accuracy: {accuracy:.2%}")
 print(f"Recall: {recall:.2%}")
 print("\nClassification Report:")
 print(classification_report(y_val, y_pred_val))
+
+# Évaluer le modèle spécifiquement pour la catégorie "others"
+others_indices = y_val == 'others'
+accuracy_others = accuracy_score(y_val[others_indices], y_pred_val[others_indices])
+recall_others = recall_score(y_val[others_indices], y_pred_val[others_indices], average='weighted')
+
+print(f"Accuracy for 'others': {accuracy_others:.2%}")
+print(f"Recall for 'others': {recall_others:.2%}")
