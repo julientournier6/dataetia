@@ -1,10 +1,11 @@
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.model_selection import RandomizedSearchCV, train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, recall_score, classification_report
+from sklearn.utils.class_weight import compute_class_weight
 
 # Charger les données d'entraînement
 data_train = pd.read_excel('train/classif_test_v2.xlsx')
@@ -32,8 +33,12 @@ features_train_imputed = imputer.fit_transform(features_train)
 scaler = StandardScaler()
 features_train_scaled = scaler.fit_transform(features_train_imputed)
 
+# Calculer les poids de classe
+class_weights = compute_class_weight('balanced', classes=np.unique(labels_train), y=labels_train)
+class_weights_dict = {class_label: weight for class_label, weight in zip(np.unique(labels_train), class_weights)}
+
 # Définir les hyperparamètres à tester
-param_grid = {
+param_dist = {
     'n_estimators': [100, 200, 300, 400, 500],
     'max_depth': [None, 10, 20, 30, 40, 50],
     'min_samples_split': [2, 5, 10, 15],
@@ -42,17 +47,17 @@ param_grid = {
 }
 
 # Modèle Random Forest
-rf = RandomForestClassifier(random_state=42)
+rf = RandomForestClassifier(random_state=42, class_weight=class_weights_dict)
 
-# Grid Search avec validation croisée
-grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, cv=10, scoring='accuracy', n_jobs=-1, verbose=2)
-grid_search.fit(features_train_scaled, labels_train)
+# Randomized Search avec validation croisée
+random_search = RandomizedSearchCV(estimator=rf, param_distributions=param_dist, n_iter=50, cv=10, scoring='accuracy', n_jobs=-1, verbose=2, random_state=42)
+random_search.fit(features_train_scaled, labels_train)
 
 # Afficher les meilleurs hyperparamètres
-print(f"Best hyperparameters: {grid_search.best_params_}")
+print(f"Best hyperparameters: {random_search.best_params_}")
 
 # Utiliser les meilleurs hyperparamètres pour entraîner le modèle final
-best_rf = grid_search.best_estimator_
+best_rf = random_search.best_estimator_
 
 # Charger les nouvelles données
 data_test = pd.read_excel('données2_v2.xlsx')
