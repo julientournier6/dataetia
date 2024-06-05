@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
@@ -31,16 +31,27 @@ features_train_imputed = imputer.fit_transform(features_train)
 scaler = StandardScaler()
 features_train_scaled = scaler.fit_transform(features_train_imputed)
 
+# Définir les hyperparamètres à tester
+param_grid = {
+    'n_estimators': [100, 200, 300],
+    'max_depth': [None, 10, 20, 30],
+    'min_samples_split': [2, 5, 10],
+    'min_samples_leaf': [1, 2, 4],
+    'bootstrap': [True, False]
+}
+
 # Modèle Random Forest
-model = RandomForestClassifier(n_estimators=100, max_depth=None, random_state=42)
+rf = RandomForestClassifier(random_state=42)
 
-# Validation croisée pour évaluer l'accuracy
-scores = cross_val_score(model, features_train_scaled, labels_train, cv=5, scoring='accuracy')
-mean_accuracy = scores.mean() * 100
-print(f"Mean Accuracy: {mean_accuracy:.2f}%")
+# Grid Search avec validation croisée
+grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, cv=5, scoring='accuracy', n_jobs=-1, verbose=2)
+grid_search.fit(features_train_scaled, labels_train)
 
-# Entraîner le modèle sur les données d'entraînement complètes
-model.fit(features_train_scaled, labels_train)
+# Afficher les meilleurs hyperparamètres
+print(f"Best hyperparameters: {grid_search.best_params_}")
+
+# Utiliser les meilleurs hyperparamètres pour entraîner le modèle final
+best_rf = grid_search.best_estimator_
 
 # Charger les nouvelles données
 data_test = pd.read_excel('données2_v2.xlsx')
@@ -51,7 +62,7 @@ features_test_imputed = imputer.transform(features_test)
 features_test_scaled = scaler.transform(features_test_imputed)
 
 # Prédire les catégories des nouvelles images
-predictions = model.predict(features_test_scaled)
+predictions = best_rf.predict(features_test_scaled)
 
 # Ajouter les prédictions au DataFrame des nouvelles données
 data_test['bug_category'] = predictions
@@ -60,6 +71,6 @@ data_test['bug_category'] = predictions
 result = data_test[['ID', 'bug_category']]
 
 # Stocker les résultats dans un fichier Excel
-output_file = 'machine_learning/noe_result_v2.xlsx'
+output_file = 'machine_learning/noe_result.xlsx'
 result.to_excel(output_file, index=False)
 print(f"Results saved to {output_file}")
