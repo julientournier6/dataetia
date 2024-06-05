@@ -91,6 +91,6 @@ data_test['bug_category'] = predictions
 result = data_test[['ID', 'bug_category']]
 
 # Stocker les résultats dans un fichier Excel
-output_file = 'machine_learning/noe_result_optimized.xlsx'
+output_file = 'machine_learning/noe_result_svm.xlsx'
 result.to_excel(output_file, index=False)
 print(f"Results saved to {output_file}")
